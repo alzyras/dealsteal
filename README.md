@@ -1,6 +1,4 @@
-# Template App
-
-A brief description of the application.
+# DealSteal
 ![Deal Steal](dealsteal.png)
 
 Deal Steal is a package that searches eBay for auctions.
