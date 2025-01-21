@@ -1,3 +1,3 @@
 poetry install
 poetry shell
-python src/template_app/runner.py
+python src/dealsteal/runner.py

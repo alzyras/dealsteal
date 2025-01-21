@@ -1,17 +1,15 @@
 import os
 
-from dealsteal.ebay import EbayAuctionSearcher
+from src.dealsteal.ebay import EbayAuctionSearcher
 
 
 def test_ebay_access():
     """Test if eBay API access and auction search functionality work."""
     # Retrieve environment variables
-    ebay_api_key = os.getenv("EBAY_API_KEY")
     ebay_app_id = os.getenv("EBAY_APP_ID")
     ebay_oauth_token = os.getenv("EBAY_OAUTH_TOKEN")
 
     # Validate required environment variables
-    assert ebay_api_key is not None, "EBAY_API_KEY is not set."
     assert ebay_app_id is not None, "EBAY_APP_ID is not set."
     assert ebay_oauth_token is not None, "EBAY_OAUTH_TOKEN is not set."
 

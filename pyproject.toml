@@ -2,7 +2,7 @@
 name = "dealsteal"
 version = "0.1.0"
 description = "e-commerce deal hunter"
-authors = ["Tomas Timinskas tatiminskas@gmail.com"]
+authors = ["Tomas Timinskas <tatiminskas@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]

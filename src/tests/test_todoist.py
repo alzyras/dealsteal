@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from dealsteal.todoist import TodoistClient
+from src.dealsteal.todoist import TodoistClient
 
 # Load environment variables
 TODOIST_TOKEN = os.getenv("TODOIST_TOKEN")
