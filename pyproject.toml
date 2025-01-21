@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "dealsteal"
+version = "0.1.0"
+description = "e-commerce deal hunter"
+authors = ["Tomas Timinskas tatiminskas@gmail.com"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "~3.11"
+requests = "^2.32.3"
+pandas = "2.1.4"
+sqlalchemy = "^2.0.31"
+psycopg2-binary = "^2.9.9"
+databricks-sql-connector = "^3.3.0"
+
+[tool.poetry.group.development.dependencies]
+ruff = '^0.0.285'
+isort = '^5.12.0'
+requests = "^2.32.3"
+black = '^23.7.0'
+pytest = "^8.2.2"
+python-dotenv = "^1.0.1"
+
+[tool.poetry.group.notebooks.dependencies]
+ipykernel = "^6.29.5"
+pickleshare = "^0.7.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# match black
+line-length = 88 # Same as Black
+target-version = "py311"
+pydocstyle.convention = "google"
+select = [
+    "ALL", # include all the rules, including new ones
+]
+ignore = [
+    "G004", # logging with f-strings
+    "E501", # line too long
+    "ANN101", # missing type annotation for self in method
+    "D104", # missing docstring in public package
+    "D100", # missing docstring in public module
+    "ANN101", # missing type annotation for self in method
+    "ANN102", # missing type annotation for cls in class method
+    "I001", # isort import order
+    "ANN401", # dynamic type annotations
+    "ANN002", # missing type annotation for args
+    "ANN003", # missing type annotation for kwarg
+    "S101", # use of assert
+    "INP001", # missing __init__.py in package
+    "SLF001", # access to a private member (for tests only)
+]
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = 'double'
+inline-quotes = 'double'
+multiline-quotes = 'double'
+
+[tool.black]
+line-length = 88
+skip-string-normalization = true
+
+[tool.isort] # Making isort compatible with black
+profile = 'black'
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
