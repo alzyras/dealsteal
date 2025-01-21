@@ -1,9 +1,10 @@
+import logging
 import os
+
 import requests
 
-import logging
-
 LOGGER = logging.getLogger(__name__)
+
 
 class TodoistClient:
     def __init__(self, api_token: str):
@@ -54,7 +55,9 @@ class TodoistClient:
         if response.status_code == 200:
             return response.json()
         else:
-            LOGGER.error(f"Failed to get projects: {response.status_code}, {response.text}")
+            LOGGER.error(
+                f"Failed to get projects: {response.status_code}, {response.text}"
+            )
             return None
 
     def get_task(self, task_id: str) -> dict:
@@ -87,7 +90,9 @@ class TodoistClient:
             LOGGER.info("Task successfully deleted.")
             return True
         else:
-            LOGGER.error(f"Failed to delete task: {response.status_code}, {response.text}")
+            LOGGER.error(
+                f"Failed to delete task: {response.status_code}, {response.text}"
+            )
             return False
 
     def submit_task(
@@ -136,7 +141,9 @@ class TodoistClient:
 
 
 if __name__ == "__main__":
-    API_TOKEN = os.environ.get("TODOIST_TOKEN")  # Replace with your actual Todoist API token
+    API_TOKEN = os.environ.get(
+        "TODOIST_TOKEN"
+    )  # Replace with your actual Todoist API token
 
     if not API_TOKEN:
         LOGGER.error("Error: TODOIST_TOKEN is not set in environment variables.")
@@ -147,7 +154,9 @@ if __name__ == "__main__":
     TITLE = "Complete the Python project"
     DESCRIPTION = "Finish the class-based Todoist script and test it."
     DUE_DATE = "2025-01-10T15:00:00Z"  # Optional. Set to None if not needed
-    PROJECT_ID = os.environ.get("TODOIST_PROJECT")  # Optional. Replace with your project ID if needed
+    PROJECT_ID = os.environ.get(
+        "TODOIST_PROJECT"
+    )  # Optional. Replace with your project ID if needed
     ITEM_ID = "unique_item_id_123"  # Replace with your actual item ID if needed
 
     response = client.submit_task(TITLE, DESCRIPTION, DUE_DATE, PROJECT_ID, ITEM_ID)

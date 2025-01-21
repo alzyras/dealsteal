@@ -1,9 +1,5 @@
 import logging
 
-from dealsteal.task import main_task
-
-__all__ = ["main_task"]
-
 LOGGER = logging.getLogger(__name__)
 
 

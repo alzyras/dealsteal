@@ -1,5 +1,7 @@
 import os
+
 import pytest
+
 from dealsteal.todoist import TodoistClient
 
 # Load environment variables
