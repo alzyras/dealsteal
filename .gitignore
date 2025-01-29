@@ -137,3 +137,5 @@ dmypy.json
 cython_debug/
 
 *_test*
+
+poetry.lock
