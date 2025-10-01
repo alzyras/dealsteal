@@ -1,0 +1,15 @@
+version: '3.11'
+
+services:
+  auctioner:
+    build: .
+    container_name: auctioner-container
+    environment:
+      - YOUR_ENV=auctioner_env
+      - MAX_TIME_REMAINING=36000  # Example for an environment variable
+    volumes:
+      - .:/app  # Mount the current directory to /app inside the container (optional)
+    ports:
+      - "5000:5000"  # Example port mapping (only if your app uses ports, modify if necessary)
+    command: ["sh", "-c", "cd /app && python /app/src/dealsteal/runner.py"]
+    restart: always  # Optional: ensures the container always restarts if it stops
