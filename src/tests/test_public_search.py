@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import requests
 
 from dealsteal.ebay import EbayAuctionSearcher
@@ -15,6 +13,7 @@ SEARCH_HTML = """
         <span class="clipped">Opens in a new window</span>
       </div>
     </a>
+    <div class="s-card__subtitle">Pre-Owned</div>
     <span class="s-card__price">£150.00</span>
     <span class="s-card__time-left">2h 5m left</span>
     <span class="s-card__time-end">(Today)</span>
@@ -71,6 +70,7 @@ def test_parser_keeps_auction_cards_and_ignores_non_auctions() -> None:
     assert len(items) == 2
     assert items[0]["title"] == "GoPro Hero 11 Black"
     assert items[0]["time_left"] == "2h 5m left"
+    assert items[0]["condition_text"] == "Pre-Owned"
     assert items[1]["time_left"] == ""
 
 
@@ -97,6 +97,7 @@ def test_search_uses_public_html_and_normalizes_auction_json() -> None:
     assert results[0]["listing_type"] == "Auction"
     assert results[0]["location"] == "United Kingdom"
     assert results[0]["bid_count"] == 1
+    assert results[0]["condition_display_name"] == "Pre-Owned"
     assert session.calls[0][2]["LH_Auction"] == "1"
 
 
@@ -107,3 +108,38 @@ def test_challenge_response_is_not_treated_as_empty_search() -> None:
     )
 
     assert EbayAuctionSearcher._is_challenge(response)
+
+
+def test_localized_time_and_listing_fields_are_normalized() -> None:
+    searcher = EbayAuctionSearcher(min_request_interval=0)
+
+    assert searcher._parse_time_left("Noch 1 Std 57 Min") == 7020
+    assert searcher._parse_time_left("1 jour 2 heures 3 minutes") == 93780
+
+    item = searcher._format_public_item(
+        {
+            "item_id": "789",
+            "title": "MacBook Pro",
+            "price_text": "EUR 77,98",
+            "time_left": "Noch 1 Std 57 Min",
+            "url": "https://www.ebay.de/itm/789",
+            "attribute_rows": [
+                "17 Gebote · Restzeit Noch 1 Std 57 Min",
+                "+ EUR 16,37 Lieferung",
+                "aus Vereinigte Staaten von Amerika",
+                "seller 99,5% positiv (212)",
+            ],
+            "condition_text": "Gebraucht",
+        },
+        "DE",
+        "www.ebay.de",
+    )
+
+    assert item is not None
+    assert item["price"] == "77.98 EUR"
+    assert item["location"] == "Vereinigte Staaten von Amerika"
+    assert item["bid_count"] == 17
+    assert item["shipping_cost"] == "+ EUR 16,37 Lieferung (EUR)"
+    assert item["seller_user_id"] == "seller"
+    assert item["feedback_score"] == "212"
+    assert item["feedback_percentage"] == "99,5%"

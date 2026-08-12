@@ -62,6 +62,7 @@ class _SearchPageParser(HTMLParser):
                 "time_left": "",
                 "time_end_text": "",
                 "gallery_url": "",
+                "condition_text": "",
                 "attribute_rows": [],
             }
             self.list_depth = 1
@@ -102,6 +103,8 @@ class _SearchPageParser(HTMLParser):
             capture_kind = "time_left"
         elif "s-card__time-end" in classes:
             capture_kind = "time_end_text"
+        elif "s-card__subtitle" in classes:
+            capture_kind = "condition_text"
 
         if capture_kind is not None and self.capture is None:
             self.capture = {
@@ -529,13 +532,19 @@ class EbayAuctionSearcher:
         location = next(
             (
                 re.sub(
-                    r"^(?:Located in|from)\s+",
+                    r"^(?:Located in|from|aus|Versand aus|envoyé depuis|"
+                    r"expédié depuis|situé en|ubicado en)\s+",
                     "",
                     row,
                     flags=re.IGNORECASE,
                 ).strip()
                 for row in rows
-                if re.match(r"^(?:Located in|from)\s+", row, re.IGNORECASE)
+                if re.match(
+                    r"^(?:Located in|from|aus|Versand aus|envoyé depuis|"
+                    r"expédié depuis|situé en|ubicado en)\s+",
+                    row,
+                    re.IGNORECASE,
+                )
             ),
             "Unknown",
         )
@@ -543,10 +552,17 @@ class EbayAuctionSearcher:
             (
                 int(match.group(1))
                 for row in rows
-                if (match := re.search(r"(\d+)\s+bids?", row, re.IGNORECASE))
+                if (
+                    match := re.search(
+                        r"(\d+)\s+(?:bids?|gebote?|offres?|ofertas?|offerte?)\b",
+                        row,
+                        re.IGNORECASE,
+                    )
+                )
             ),
             0,
         )
+        seller_user_id, feedback_score, feedback_percentage = self._seller_details(rows)
 
         return {
             "country": country,
@@ -558,15 +574,15 @@ class EbayAuctionSearcher:
             "category_id": "Unknown",
             "item_id": item_id,
             "condition_id": "Unknown",
-            "condition_display_name": "Unknown",
+            "condition_display_name": raw_item.get("condition_text") or "Unknown",
             "listing_type": "Auction",
             "start_time": "Unknown",
             "end_time": end_time.isoformat(timespec="milliseconds").replace(
                 "+00:00", "Z"
             ),
-            "seller_user_id": "Unknown",
-            "feedback_score": "Unknown",
-            "feedback_percentage": "Unknown",
+            "seller_user_id": seller_user_id,
+            "feedback_score": feedback_score,
+            "feedback_percentage": feedback_percentage,
             "shipping_cost": self._shipping_cost(rows, currency),
             "location": location,
             "gallery_url": raw_item.get("gallery_url") or "No URL available",
@@ -575,10 +591,28 @@ class EbayAuctionSearcher:
 
     @staticmethod
     def _shipping_cost(rows: list[str], currency: str) -> str:
+        shipping_words = (
+            "delivery",
+            "shipping",
+            "postage",
+            "versand",
+            "lieferung",
+            "livraison",
+            "spedizione",
+            "envío",
+        )
         for row in rows:
-            if "delivery" in row.lower() or "shipping" in row.lower():
+            if any(word in row.lower() for word in shipping_words):
                 return f"{row} ({currency})"
         return f"0.00 {currency}"
+
+    @staticmethod
+    def _seller_details(rows: list[str]) -> tuple[str, str, str]:
+        for row in reversed(rows):
+            match = re.match(r"\s*(\S+)\s+([\d.,]+)%[^()]*\(([^)]+)\)", row)
+            if match:
+                return match.group(1), match.group(3), f"{match.group(2)}%"
+        return "Unknown", "Unknown", "Unknown"
 
     @staticmethod
     def _parse_price(text: str, country: str) -> tuple[float, str]:
@@ -633,32 +667,68 @@ class EbayAuctionSearcher:
         if not text:
             return None
         matches = re.findall(
-            r"(\d+)\s*(days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b",
+            r"(\d+)\s*(days?|d|tage?|t|jours?|jour|giorni?|giorno|días?|dias?|hours?|hrs?|h|stunden?|std|st|heures?|horas?|ore?|ora|minutes?|mins?|minuten?|minutos?|m|seconds?|secs?|sec|sekunden?|secondes?|secondi?|s)\b",
             text.lower(),
         )
-        if not matches:
+        clock_match = re.search(r"(?:(\d+)\s+days?,\s*)?(\d+):(\d{2}):(\d{2})", text)
+        if not matches and clock_match is None:
             return None
         units = {
             "d": 86400,
             "day": 86400,
             "days": 86400,
+            "t": 86400,
+            "tag": 86400,
+            "tage": 86400,
+            "jour": 86400,
+            "jours": 86400,
+            "giorno": 86400,
+            "giorni": 86400,
+            "día": 86400,
+            "días": 86400,
+            "dia": 86400,
+            "dias": 86400,
             "h": 3600,
             "hr": 3600,
             "hrs": 3600,
             "hour": 3600,
             "hours": 3600,
+            "st": 3600,
+            "std": 3600,
+            "stunde": 3600,
+            "stunden": 3600,
+            "heure": 3600,
+            "heures": 3600,
+            "hora": 3600,
+            "horas": 3600,
+            "ora": 3600,
+            "ore": 3600,
             "m": 60,
             "min": 60,
             "mins": 60,
             "minute": 60,
             "minutes": 60,
+            "minuten": 60,
+            "minuto": 60,
+            "minutos": 60,
             "s": 1,
             "sec": 1,
             "secs": 1,
             "second": 1,
             "seconds": 1,
+            "sekunde": 1,
+            "sekunden": 1,
+            "seconde": 1,
+            "secondes": 1,
+            "secondi": 1,
         }
-        return sum(int(value) * units[unit] for value, unit in matches)
+        seconds = sum(int(value) * units[unit] for value, unit in matches)
+        if clock_match:
+            days, hours, minutes, clock_seconds = (
+                int(part or 0) for part in clock_match.groups()
+            )
+            seconds += days * 86400 + hours * 3600 + minutes * 60 + clock_seconds
+        return seconds
 
     @staticmethod
     def _time_string_to_seconds(value: str) -> int:
