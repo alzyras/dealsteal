@@ -1,76 +1,114 @@
+"""Run all JSON auction queries and optionally mirror results to Todoist."""
+
+from __future__ import annotations
+
 import glob
 import json
 import logging
 import os
-import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
 
-# Load environment variables from .env file
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
-except ImportError:
-    print("python-dotenv not available, using system environment variables")
+except ImportError:  # pragma: no cover - optional convenience dependency
+    pass
 
 try:
     from .ebay import EbayAuctionSearcher
     from .todoist import TodoistClient
-except ImportError:
+except ImportError:  # pragma: no cover - supports `python src/.../runner.py`
     from ebay import EbayAuctionSearcher
     from todoist import TodoistClient
 
-# Load environment variables
-TODOIST_API_TOKEN = os.environ.get("TODOIST_TOKEN")
-PROJECT_ID = os.environ.get("TODOIST_PROJECT")
-EBAY_APP_ID = os.environ.get("EBAY_APP_ID")
-EBAY_CERT_ID = os.environ.get("EBAY_CERT_ID")
-MAX_TIME_REMAINING = int(os.environ.get("MAX_TIME_REMAINING") or 28800)  # Default to 8 hours
-
-client = TodoistClient(TODOIST_API_TOKEN)
-searcher = EbayAuctionSearcher(EBAY_APP_ID, EBAY_CERT_ID)
-
 LOGGER = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
-# Check API status before starting
-is_valid, status_message = searcher.check_api_status()
-LOGGER.info(f"eBay API Status: {status_message}")
 
-if not is_valid:
-    LOGGER.warning("eBay API is not accessible. Running in offline mode...")
-    # Continue running but without eBay functionality
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
+    except ValueError:
+        LOGGER.warning("Ignoring invalid integer %s=%r", name, os.getenv(name))
+        return default
 
-json_files = glob.glob("store/item_queries/*.json")
 
-for i, json_file in enumerate(json_files):
-    # Add delay between processing different files to avoid rate limits
-    if i > 0:
-        LOGGER.info("Waiting 5 minutes before processing next file to avoid rate limits...")
-        time.sleep(300)  # 5 minutes
-        
-    with open(json_file, "r") as file:
+def _query_files() -> list[str]:
+    pattern = os.getenv("ITEM_QUERY_GLOB", "store/item_queries/*.json")
+    return sorted(glob.glob(pattern))
+
+
+def _load_queries(path: str) -> list[dict[str, Any]]:
+    with open(path, encoding="utf-8") as file:
         data = json.load(file)
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    return [data] if isinstance(data, dict) else []
 
-        if isinstance(data, list):
-            json_list = data
-        else:
-            json_list = [data]
 
-        for item in json_list:
-            LOGGER.info(item)
+def _due_date(end_time: str) -> str:
+    if end_time and end_time != "Unknown":
+        try:
+            parsed = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            LOGGER.debug("Could not parse auction end time %r", end_time)
+    return (datetime.now(timezone.utc) + timedelta(days=1)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+
+def main() -> None:
+    """Search configured JSON files without requiring eBay credentials."""
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    searcher = EbayAuctionSearcher()
+    todoist_token = os.getenv("TODOIST_TOKEN")
+    todoist = TodoistClient(todoist_token) if todoist_token else None
+    project_id = os.getenv("TODOIST_PROJECT")
+    max_time_remaining = _int_env("MAX_TIME_REMAINING", 28800)
+    query_files = _query_files()
+
+    if not query_files:
+        LOGGER.warning("No item query files matched %s", os.getenv("ITEM_QUERY_GLOB"))
+        return
+    if todoist is None:
+        LOGGER.info("TODOIST_TOKEN is not set; search results will only be logged")
+
+    for json_file in query_files:
+        for query in _load_queries(json_file):
+            keywords = query.get("keywords")
+            if not keywords:
+                LOGGER.warning("Skipping query without keywords in %s", json_file)
+                continue
+            LOGGER.info("Searching %s: %s", Path(json_file).name, query)
             auctions = searcher.search_ebay_auctions(
-                item["keywords"],
-                max_price=item["max_price"],
-                min_price=item["min_price"],
-                max_time_remaining=MAX_TIME_REMAINING,
+                keywords,
+                countries=query.get("countries"),
+                max_price=query.get("max_price"),
+                min_price=query.get("min_price"),
+                max_time_remaining=max_time_remaining,
+                category_ids=query.get("category_ids"),
+                condition_ids=query.get("condition_ids"),
             )
-            
-            # If we get rate limited, continue with empty results
-            if not auctions:
-                LOGGER.warning("No auctions returned, possibly due to rate limiting. Continuing...")
-            
+            LOGGER.info("Found %s auctions for %r", len(auctions), keywords)
+
             for auction in auctions:
-                LOGGER.info(auction)
+                LOGGER.info(
+                    "%s | %s | %s | %s",
+                    auction["country"],
+                    auction["title"],
+                    auction["price"],
+                    auction["time_remaining"],
+                )
+                if todoist is None:
+                    continue
                 title = (
                     f"{auction['country']} - {auction['title']} - {auction['price']}"
                 )
@@ -79,26 +117,14 @@ for i, json_file in enumerate(json_files):
                     f"URL: {auction['url']}\n"
                     f"Category: {auction['category']}"
                 )
-                # Handle case where end_time is 'Unknown' from the Browse API
-                end_time_str = auction["end_time"]
-                if end_time_str != "Unknown":
-                    try:
-                        end_time = datetime.strptime(
-                            end_time_str, "%Y-%m-%dT%H:%M:%S.%fZ"
-                        )
-                        due_date = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
-                    except ValueError:
-                        # If parsing fails, use a default due date (e.g., 1 day from now)
-                        due_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                else:
-                    # Use a default due date if end_time is unknown
-                    due_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-                
-                item_id = str(auction["item_id"])
-                client.submit_task(
+                todoist.submit_task(
                     title=title,
                     description=description,
-                    due_date=due_date,
-                    project_id=PROJECT_ID,
-                    item_id=item_id,
+                    due_date=_due_date(auction["end_time"]),
+                    project_id=project_id,
+                    item_id=str(auction["item_id"]),
                 )
+
+
+if __name__ == "__main__":
+    main()
