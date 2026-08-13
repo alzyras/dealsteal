@@ -367,15 +367,67 @@ class EbayAuctionSearcher:
         include_auction_items: bool = True,
         max_pages: int | None = None,
     ) -> list[dict[str, Any]]:
-        """Search one or more eBay sites and return normalized auction JSON.
+        """Search one or more eBay sites and return normalized auction JSON."""
+        return self._search_public_listings(
+            keywords,
+            countries=countries,
+            max_price=max_price,
+            min_price=min_price,
+            max_time_remaining=max_time_remaining,
+            category_ids=category_ids,
+            condition_ids=condition_ids,
+            sort_by_ending_soon=sort_by_ending_soon,
+            listing_type="auction" if include_auction_items else "all",
+            max_pages=max_pages,
+        )
 
-        The return shape is intentionally compatible with the previous
-        Browse/Finding API adapters.  Each requested site gets its own public
-        search query, so ``countries`` is no longer silently truncated to one
-        country.
+    def search_ebay_buy_it_now(
+        self,
+        keywords: str,
+        countries: list[str] | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
+        category_ids: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        sort_by_price: bool = True,
+        max_pages: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Search fixed-price Buy It Now listings without auction results."""
+        return self._search_public_listings(
+            keywords,
+            countries=countries,
+            max_price=max_price,
+            min_price=min_price,
+            category_ids=category_ids,
+            condition_ids=condition_ids,
+            sort_by_ending_soon=not sort_by_price,
+            listing_type="buy_it_now",
+            max_pages=max_pages,
+        )
+
+    def _search_public_listings(
+        self,
+        keywords: str,
+        countries: list[str] | None,
+        max_price: float | None,
+        min_price: float | None,
+        max_time_remaining: int | None = None,
+        category_ids: list[str] | None = None,
+        condition_ids: list[str] | None = None,
+        sort_by_ending_soon: bool = True,
+        listing_type: str = "auction",
+        max_pages: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Search public eBay HTML with an explicit listing-type filter.
+
+        ``listing_type`` is ``auction``, ``buy_it_now``, or ``all``. The
+        normalized result keeps a stable JSON shape for all three modes.
         """
         if not keywords or not keywords.strip():
             return []
+
+        if listing_type not in {"auction", "buy_it_now", "all"}:
+            raise ValueError(f"Unsupported eBay listing type: {listing_type}")
 
         countries_to_search = countries or self.EUROPEAN_COUNTRIES
         pages = max(1, max_pages or self.max_pages)
@@ -397,7 +449,7 @@ class EbayAuctionSearcher:
                     category_ids,
                     condition_ids,
                     sort_by_ending_soon=sort_by_ending_soon,
-                    include_auction_items=include_auction_items,
+                    listing_type=listing_type,
                     limit=self.page_size,
                     offset=(page - 1) * self.page_size,
                 )
@@ -411,7 +463,12 @@ class EbayAuctionSearcher:
 
                 page_results = 0
                 for raw_item in raw_items:
-                    item = self._format_public_item(raw_item, country_code, host)
+                    item = self._format_public_item(
+                        raw_item,
+                        country_code,
+                        host,
+                        listing_type=listing_type,
+                    )
                     if item is None:
                         continue
                     if not self._within_filters(
@@ -426,17 +483,33 @@ class EbayAuctionSearcher:
                     page_results += 1
 
                 LOGGER.info(
-                    "eBay %s page %s: parsed %s listings, kept %s auctions",
+                    "eBay %s page %s: parsed %s listings, kept %s %s listings",
                     country_code,
                     page,
                     len(raw_items),
                     page_results,
+                    listing_type,
                 )
 
         results.sort(
-            key=lambda item: self._time_string_to_seconds(item["time_remaining"])
+            key=lambda item: (
+                self._time_string_to_seconds(item["time_remaining"])
+                if item["listing_type"] == "Auction"
+                else self._landed_price_sort_value(item)
+            )
         )
         return results
+
+    @staticmethod
+    def _landed_price_sort_value(item: dict[str, Any]) -> float:
+        """Sort known landed prices first and leave unknown shipping last."""
+        landed_price = item.get("landed_price", "Unknown")
+        if landed_price == "Unknown":
+            return float("inf")
+        try:
+            return float(str(landed_price).split()[0])
+        except (ValueError, IndexError):
+            return float("inf")
 
     def find_auction_deals(
         self,
@@ -491,6 +564,7 @@ class EbayAuctionSearcher:
         condition_ids: list[str] | None,
         sort_by_ending_soon: bool = True,
         include_auction_items: bool = True,
+        listing_type: str | None = None,
         limit: int = 120,
         offset: int = 0,
     ) -> dict[str, str]:
@@ -502,7 +576,11 @@ class EbayAuctionSearcher:
             "_pgn": str((max(0, offset) // max(1, limit)) + 1),
             "_sacat": str(category_ids[0]) if category_ids else "0",
         }
-        if include_auction_items:
+        if listing_type == "buy_it_now":
+            params["LH_BIN"] = "1"
+        elif listing_type == "auction" or (
+            listing_type is None and include_auction_items
+        ):
             params["LH_Auction"] = "1"
         if sort_by_ending_soon:
             params["_sop"] = "1"
@@ -608,18 +686,28 @@ class EbayAuctionSearcher:
         return parser.items
 
     def _format_public_item(
-        self, raw_item: dict[str, Any], country: str, host: str
+        self,
+        raw_item: dict[str, Any],
+        country: str,
+        host: str,
+        listing_type: str = "auction",
     ) -> dict[str, Any] | None:
         time_left_text = raw_item.get("time_left", "")
         seconds = self._parse_time_left(time_left_text)
-        if seconds is None:
+        if listing_type == "buy_it_now":
+            normalized_listing_type = "Buy It Now"
+        elif listing_type == "all" and seconds is None:
+            normalized_listing_type = "Buy It Now"
+        else:
+            normalized_listing_type = "Auction"
+        if normalized_listing_type == "Auction" and seconds is None:
             return None
 
         price_value, currency = self._parse_price(
             raw_item.get("price_text", ""), country
         )
         now = datetime.now(timezone.utc)
-        end_time = now + timedelta(seconds=seconds)
+        end_time = now + timedelta(seconds=seconds) if seconds is not None else None
         item_id = str(raw_item.get("item_id", "Unknown"))
         url = raw_item.get("url") or f"https://{host}/itm/{item_id}"
         rows = raw_item.get("attribute_rows", [])
@@ -657,34 +745,59 @@ class EbayAuctionSearcher:
             0,
         )
         seller_user_id, feedback_score, feedback_percentage = self._seller_details(rows)
+        (
+            shipping_display,
+            shipping_value,
+            shipping_currency,
+            shipping_known,
+        ) = self._shipping_details(rows, currency)
+        landed_price = (
+            price_value + shipping_value
+            if shipping_known
+            and shipping_currency == currency
+            and shipping_value is not None
+            else None
+        )
 
         return {
             "country": country,
             "title": raw_item.get("title") or "No title",
             "price": f"{price_value:.2f} {currency}",
-            "time_remaining": str(timedelta(seconds=seconds)),
+            "time_remaining": (
+                str(timedelta(seconds=seconds)) if seconds is not None else "Unknown"
+            ),
             "url": url,
             "category": "Unknown",
             "category_id": "Unknown",
             "item_id": item_id,
             "condition_id": "Unknown",
             "condition_display_name": raw_item.get("condition_text") or "Unknown",
-            "listing_type": "Auction",
+            "listing_type": normalized_listing_type,
             "start_time": "Unknown",
-            "end_time": end_time.isoformat(timespec="milliseconds").replace(
-                "+00:00", "Z"
+            "end_time": (
+                end_time.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+                if end_time is not None
+                else "Unknown"
             ),
             "seller_user_id": seller_user_id,
             "feedback_score": feedback_score,
             "feedback_percentage": feedback_percentage,
-            "shipping_cost": self._shipping_cost(rows, currency),
+            "shipping_cost": shipping_display,
+            "shipping_cost_value": shipping_value,
+            "shipping_currency": shipping_currency,
+            "shipping_known": shipping_known,
+            "landed_price": f"{landed_price:.2f} {currency}"
+            if landed_price is not None
+            else "Unknown",
             "location": location,
             "gallery_url": raw_item.get("gallery_url") or "No URL available",
             "bid_count": bid_count,
         }
 
     @staticmethod
-    def _shipping_cost(rows: list[str], currency: str) -> str:
+    def _shipping_details(
+        rows: list[str], currency: str
+    ) -> tuple[str, float | None, str | None, bool]:
         shipping_words = (
             "delivery",
             "shipping",
@@ -694,11 +807,39 @@ class EbayAuctionSearcher:
             "livraison",
             "spedizione",
             "envío",
+            "envio",
+            "entrega",
+            "consegna",
+            "dostawa",
+            "przesyłka",
+            "przesylka",
+        )
+        free_words = (
+            "free",
+            "gratis",
+            "kostenlos",
+            "gratuit",
+            "gratuita",
+            "gratuito",
+            "bezpłat",
+            "bezplat",
         )
         for row in rows:
-            if any(word in row.lower() for word in shipping_words):
-                return f"{row} ({currency})"
-        return f"0.00 {currency}"
+            lower_row = row.lower()
+            if not any(word in lower_row for word in shipping_words):
+                continue
+            if any(word in lower_row for word in free_words):
+                return f"0.00 {currency} (free)", 0.0, currency, True
+            value, shipping_currency = EbayAuctionSearcher._parse_amount(row, currency)
+            if value is not None:
+                return (
+                    f"{row} ({shipping_currency})",
+                    value,
+                    shipping_currency,
+                    True,
+                )
+            return row, None, None, False
+        return "Unknown", None, None, False
 
     @staticmethod
     def _seller_details(rows: list[str]) -> tuple[str, str, str]:
@@ -710,10 +851,26 @@ class EbayAuctionSearcher:
 
     @staticmethod
     def _parse_price(text: str, country: str) -> tuple[float, str]:
-        match = re.search(r"(?:[$£€]|CAD|AUD|EUR|GBP|CHF|PLN)?\s*([\d.,]+)", text)
-        if not match:
-            return 0.0, EbayAuctionSearcher.CURRENCY_BY_COUNTRY.get(country, "USD")
-        number = match.group(1).replace(" ", "")
+        value, currency = EbayAuctionSearcher._parse_amount(
+            text, EbayAuctionSearcher.CURRENCY_BY_COUNTRY.get(country, "USD")
+        )
+        return (value or 0.0), currency or EbayAuctionSearcher.CURRENCY_BY_COUNTRY.get(
+            country, "USD"
+        )
+
+    @staticmethod
+    def _parse_amount(
+        text: str, fallback_currency: str
+    ) -> tuple[float | None, str | None]:
+        currency_codes = "USD|CAD|AUD|EUR|GBP|CHF|PLN"
+        currency_match = re.search(
+            rf"(?:({currency_codes})|([$£€]))", text, re.IGNORECASE
+        )
+        number_match = re.search(r"\d[\d.,]*", text)
+        if not number_match:
+            return None, None
+
+        number = number_match.group(0).replace(" ", "")
         if "," in number and "." in number:
             number = (
                 number.replace(",", "")
@@ -729,16 +886,16 @@ class EbayAuctionSearcher:
         try:
             value = float(number)
         except ValueError:
-            value = 0.0
-        symbol = text.strip()[:1]
-        currency = {
-            "$": EbayAuctionSearcher.CURRENCY_BY_COUNTRY.get(country, "USD"),
-            "£": "GBP",
-            "€": "EUR",
-        }.get(
-            symbol,
-            EbayAuctionSearcher.CURRENCY_BY_COUNTRY.get(country, "USD"),
-        )
+            return None, None
+
+        currency = fallback_currency
+        if currency_match:
+            code, symbol = currency_match.groups()
+            currency = {
+                "$": "USD",
+                "£": "GBP",
+                "€": "EUR",
+            }.get(symbol, code.upper() if code else fallback_currency)
         return value, currency
 
     @staticmethod
@@ -750,10 +907,13 @@ class EbayAuctionSearcher:
     ) -> bool:
         price = float(str(item["price"]).split()[0])
         seconds = EbayAuctionSearcher._time_string_to_seconds(item["time_remaining"])
+        time_filter_matches = item.get("listing_type") == "Buy It Now" or (
+            max_time_remaining is None or seconds <= max_time_remaining
+        )
         return (
             (min_price is None or price >= min_price)
             and (max_price is None or price <= max_price)
-            and (max_time_remaining is None or seconds <= max_time_remaining)
+            and time_filter_matches
         )
 
     @staticmethod

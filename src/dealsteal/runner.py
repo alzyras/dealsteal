@@ -88,16 +88,26 @@ def main() -> None:
                 LOGGER.warning("Skipping query without keywords in %s", json_file)
                 continue
             LOGGER.info("Searching %s: %s", Path(json_file).name, query)
-            auctions = searcher.search_ebay_auctions(
+            listing_type = str(query.get("listing_type", "auction")).lower()
+            is_buy_it_now = listing_type in {"buy_it_now", "bin", "fixed_price"}
+            search_kwargs = {
+                "countries": query.get("countries"),
+                "max_price": query.get("max_price"),
+                "min_price": query.get("min_price"),
+                "category_ids": query.get("category_ids"),
+                "condition_ids": query.get("condition_ids"),
+            }
+            if is_buy_it_now:
+                auctions = searcher.search_ebay_buy_it_now(keywords, **search_kwargs)
+            else:
+                search_kwargs["max_time_remaining"] = max_time_remaining
+                auctions = searcher.search_ebay_auctions(keywords, **search_kwargs)
+            LOGGER.info(
+                "Found %s %s listings for %r",
+                len(auctions),
+                "Buy It Now" if is_buy_it_now else "auctions",
                 keywords,
-                countries=query.get("countries"),
-                max_price=query.get("max_price"),
-                min_price=query.get("min_price"),
-                max_time_remaining=max_time_remaining,
-                category_ids=query.get("category_ids"),
-                condition_ids=query.get("condition_ids"),
             )
-            LOGGER.info("Found %s auctions for %r", len(auctions), keywords)
 
             for auction in auctions:
                 LOGGER.info(
@@ -114,6 +124,9 @@ def main() -> None:
                 )
                 description = (
                     f"Time remaining: {auction['time_remaining']}\n"
+                    f"Listing type: {auction['listing_type']}\n"
+                    f"Shipping: {auction['shipping_cost']}\n"
+                    f"Landed price: {auction['landed_price']}\n"
                     f"URL: {auction['url']}\n"
                     f"Category: {auction['category']}"
                 )

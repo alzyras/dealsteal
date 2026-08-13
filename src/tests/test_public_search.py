@@ -104,6 +104,52 @@ def test_search_uses_public_html_and_normalizes_auction_json() -> None:
     assert session.calls[0][2]["LH_Auction"] == "1"
 
 
+def test_buy_it_now_search_is_separate_and_includes_landed_shipping() -> None:
+    session = FakeSession()
+    searcher = EbayAuctionSearcher(
+        session=session,
+        min_request_interval=0,
+        max_pages=1,
+        page_size=120,
+    )
+
+    results = searcher.search_ebay_buy_it_now("gopro", countries=["GB"])
+
+    result = next(item for item in results if item["item_id"] == "123")
+    assert result["listing_type"] == "Buy It Now"
+    assert result["time_remaining"] == "2:05:00"
+    assert result["end_time"] != "Unknown"
+    assert result["shipping_cost_value"] == 5.0
+    assert result["shipping_currency"] == "GBP"
+    assert result["shipping_known"] is True
+    assert result["landed_price"] == "155.00 GBP"
+    assert session.calls[0][2]["LH_BIN"] == "1"
+    assert "LH_Auction" not in session.calls[0][2]
+
+
+def test_missing_shipping_is_unknown_not_free() -> None:
+    searcher = EbayAuctionSearcher(min_request_interval=0)
+
+    item = searcher._format_public_item(
+        {
+            "item_id": "no-shipping",
+            "title": "No shipping shown",
+            "price_text": "EUR 100,00",
+            "time_left": "",
+            "attribute_rows": [],
+        },
+        "DE",
+        "www.ebay.de",
+        listing_type="buy_it_now",
+    )
+
+    assert item is not None
+    assert item["shipping_known"] is False
+    assert item["shipping_cost"] == "Unknown"
+    assert item["shipping_cost_value"] is None
+    assert item["landed_price"] == "Unknown"
+
+
 def test_challenge_response_is_not_treated_as_empty_search() -> None:
     response = _response(
         "<title>Pardon Our Interruption...</title>",
