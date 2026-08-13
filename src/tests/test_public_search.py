@@ -115,6 +115,18 @@ def test_localized_time_and_listing_fields_are_normalized() -> None:
 
     assert searcher._parse_time_left("Noch 1 Std 57 Min") == 7020
     assert searcher._parse_time_left("1 jour 2 heures 3 minutes") == 93780
+    assert searcher._parse_time_left("6 days, 2:00:00 left") == (6 * 86400) + 7200
+    assert searcher._time_string_to_seconds("6 days, 2:00:00") == (6 * 86400) + 7200
+    assert searcher._parse_time_left("Nog 12u 44m") == (12 * 3600) + 44 * 60
+    assert (
+        searcher._parse_time_left("Nog 1 dag 12u 44m") == (86400 + 12 * 3600) + 44 * 60
+    )
+    assert not searcher._within_filters(
+        {"price": "10.00 EUR", "time_remaining": "6 days, 2:00:00"},
+        None,
+        None,
+        86400,
+    )
 
     item = searcher._format_public_item(
         {

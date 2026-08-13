@@ -667,10 +667,18 @@ class EbayAuctionSearcher:
         if not text:
             return None
         matches = re.findall(
-            r"(\d+)\s*(days?|d|tage?|t|jours?|jour|giorni?|giorno|días?|dias?|hours?|hrs?|h|stunden?|std|st|heures?|horas?|ore?|ora|minutes?|mins?|minuten?|minutos?|m|seconds?|secs?|sec|sekunden?|secondes?|secondi?|s)\b",
+            r"(\d+)\s*(days?|d|tage?|t|jours?|jour|giorni?|giorno|"
+            r"días?|dias?|dag|dagen|dni|hours?|hrs?|h|stunden?|std|st|"
+            r"heures?|horas?|ore?|ora|u|uur|uren|godz|minutes?|mins?|"
+            r"minuten?|minutos?|minuut|m|seconds?|secs?|sec|sekunden?|"
+            r"secondes?|secondi?|s)\b",
             text.lower(),
         )
-        clock_match = re.search(r"(?:(\d+)\s+days?,\s*)?(\d+):(\d{2}):(\d{2})", text)
+        clock_match = re.search(
+            r"(?:(\d+)\s*(?:days?|d|tage?|t|jours?|jour|giorni?|giorno|"
+            r"días?|dias?|dag|dagen|dni)\s*,?\s*)?(\d+):(\d{2}):(\d{2})",
+            text.lower(),
+        )
         if not matches and clock_match is None:
             return None
         units = {
@@ -688,6 +696,9 @@ class EbayAuctionSearcher:
             "días": 86400,
             "dia": 86400,
             "dias": 86400,
+            "dag": 86400,
+            "dagen": 86400,
+            "dni": 86400,
             "h": 3600,
             "hr": 3600,
             "hrs": 3600,
@@ -703,6 +714,10 @@ class EbayAuctionSearcher:
             "horas": 3600,
             "ora": 3600,
             "ore": 3600,
+            "u": 3600,
+            "uur": 3600,
+            "uren": 3600,
+            "godz": 3600,
             "m": 60,
             "min": 60,
             "mins": 60,
@@ -711,6 +726,7 @@ class EbayAuctionSearcher:
             "minuten": 60,
             "minuto": 60,
             "minutos": 60,
+            "minuut": 60,
             "s": 1,
             "sec": 1,
             "secs": 1,
@@ -722,13 +738,16 @@ class EbayAuctionSearcher:
             "secondes": 1,
             "secondi": 1,
         }
-        seconds = sum(int(value) * units[unit] for value, unit in matches)
         if clock_match:
             days, hours, minutes, clock_seconds = (
                 int(part or 0) for part in clock_match.groups()
             )
-            seconds += days * 86400 + hours * 3600 + minutes * 60 + clock_seconds
-        return seconds
+            # A timedelta-style value such as ``6 days, 2:00:00`` contains
+            # the same duration twice from the token parser's perspective:
+            # once as ``6 days`` and again as the clock. Prefer the complete
+            # clock representation so multi-day countdowns are not doubled.
+            return days * 86400 + hours * 3600 + minutes * 60 + clock_seconds
+        return sum(int(value) * units[unit] for value, unit in matches)
 
     @staticmethod
     def _time_string_to_seconds(value: str) -> int:
