@@ -307,15 +307,18 @@ class EbayAuctionSearcher:
         "belgium",
         "belgique",
         "belgie",
+        "belgien",
         "bulgaria",
         "croatia",
         "cyprus",
         "czech republic",
         "czechia",
+        "tschechien",
         "denmark",
         "estonia",
         "finland",
         "france",
+        "frankreich",
         "germany",
         "deutschland",
         "greece",
@@ -323,21 +326,26 @@ class EbayAuctionSearcher:
         "ireland",
         "italy",
         "italia",
+        "italien",
         "latvia",
         "lithuania",
         "luxembourg",
         "malta",
         "netherlands",
         "nederland",
+        "niederlande",
         "poland",
         "polska",
+        "polen",
         "portugal",
         "romania",
         "slovakia",
         "slovenia",
         "spain",
         "espana",
+        "spanien",
         "sweden",
+        "schweden",
     )
     NON_EU_ORIGIN_MARKERS = (
         "united kingdom",
@@ -365,6 +373,7 @@ class EbayAuctionSearcher:
         "norvegia",
         "united states",
         "usa",
+        "vereinigte staaten",
         "canada",
         "kanada",
         "china",
@@ -580,6 +589,13 @@ class EbayAuctionSearcher:
                         listing_type=listing_type,
                     )
                     if item is None:
+                        continue
+                    if item["origin_region"] != "EU":
+                        LOGGER.info(
+                            "Skipping listing %s with unsafe customs origin %s",
+                            item["item_id"],
+                            item["location"],
+                        )
                         continue
                     if not self._within_filters(
                         item, min_price, max_price, max_time_remaining
@@ -843,12 +859,12 @@ class EbayAuctionSearcher:
             ),
             "Unknown",
         )
-        origin_region = self._origin_region(location, country)
+        origin_region = self._origin_region(location)
         if origin_region == "Non-EU":
             LOGGER.info("Skipping non-EU-origin listing %s from %s", item_id, location)
             return None
-        origin_country = location if location != "Unknown" else country
-        origin_country_source = "listing" if location != "Unknown" else "marketplace"
+        origin_country = location if location != "Unknown" else "Unknown"
+        origin_country_source = "listing" if location != "Unknown" else "unknown"
         bid_count = next(
             (
                 int(match.group(1))
@@ -982,7 +998,7 @@ class EbayAuctionSearcher:
         return "Unknown", None, None, False
 
     @classmethod
-    def _origin_region(cls, location: str, marketplace_country: str) -> str:
+    def _origin_region(cls, location: str) -> str:
         """Infer customs origin, conservatively preferring visible location."""
         normalized = re.sub(
             r"[^a-z0-9 ]+",
@@ -1001,8 +1017,6 @@ class EbayAuctionSearcher:
             re.search(rf"\b{re.escape(marker)}\b", normalized)
             for marker in cls.EU_ORIGIN_MARKERS
         ):
-            return "EU"
-        if marketplace_country.upper() in cls.EU_COUNTRY_CODES:
             return "EU"
         return "Unknown"
 

@@ -189,7 +189,7 @@ def test_missing_shipping_is_unknown_not_free() -> None:
             "title": "No shipping shown",
             "price_text": "EUR 100,00",
             "time_left": "",
-            "attribute_rows": [],
+            "attribute_rows": ["from Germany"],
         },
         "DE",
         "www.ebay.de",
@@ -203,7 +203,7 @@ def test_missing_shipping_is_unknown_not_free() -> None:
     assert item["landed_price"] == "Unknown"
 
 
-def test_eu_marketplace_is_country_fallback_when_location_is_not_shown() -> None:
+def test_missing_origin_country_is_marked_unknown_for_public_formatter() -> None:
     searcher = EbayAuctionSearcher(min_request_interval=0)
 
     item = searcher._format_public_item(
@@ -220,10 +220,10 @@ def test_eu_marketplace_is_country_fallback_when_location_is_not_shown() -> None
     )
 
     assert item is not None
-    assert item["origin_country"] == "DE"
-    assert item["origin_country_source"] == "marketplace"
-    assert item["import_cost_known"] is True
-    assert item["landed_price"] == "110.00 EUR"
+    assert item["origin_country"] == "Unknown"
+    assert item["origin_country_source"] == "unknown"
+    assert item["import_cost_known"] is False
+    assert item["landed_price"] == "Unknown"
 
 
 def test_challenge_response_is_not_treated_as_empty_search() -> None:
@@ -263,7 +263,7 @@ def test_localized_time_and_listing_fields_are_normalized() -> None:
             "attribute_rows": [
                 "17 Gebote · Restzeit Noch 1 Std 57 Min",
                 "+ EUR 16,37 Lieferung",
-                "aus Vereinigte Staaten von Amerika",
+                "aus Deutschland",
                 "seller 99,5% positiv (212)",
             ],
             "condition_text": "Gebraucht",
@@ -274,7 +274,7 @@ def test_localized_time_and_listing_fields_are_normalized() -> None:
 
     assert item is not None
     assert item["price"] == "77.98 EUR"
-    assert item["location"] == "Vereinigte Staaten von Amerika"
+    assert item["location"] == "Deutschland"
     assert item["bid_count"] == 17
     assert item["shipping_cost"] == "+ EUR 16,37 Lieferung (EUR)"
     assert item["seller_user_id"] == "seller"

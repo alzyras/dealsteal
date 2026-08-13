@@ -33,9 +33,10 @@ fixed-price listings separately; the default is `auction`. Results expose
 The default site list is
 inside the EU customs union, so UK and Switzerland are skipped. Listings whose
 visible origin is outside the EU are skipped too; listings without a country
-are kept with `origin_country_source="marketplace"`, based on the EU-only
-marketplace, while an explicit listing location wins. If eBay does not show a
-shipping amount, it is reported as unknown rather than free.
+are skipped because an eBay marketplace country is not proof of seller origin.
+An explicit listing location is required for the no-import-cost calculation. If
+eBay does not show a shipping amount, it is reported as unknown rather than
+free.
 
 The Python API exposes the same split directly through
 `search_ebay_auctions(...)` and `search_ebay_buy_it_now(...)`.
