@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import requests
 
 from dealsteal.ebay import EbayAuctionSearcher
@@ -155,3 +156,19 @@ def test_localized_time_and_listing_fields_are_normalized() -> None:
     assert item["seller_user_id"] == "seller"
     assert item["feedback_score"] == "212"
     assert item["feedback_percentage"] == "99,5%"
+
+
+@pytest.mark.parametrize(
+    ("text", "expected_seconds"),
+    [
+        ("Ends in 2 days 3 hours 4 minutes 5 seconds", 183845),
+        ("Noch 2 Tage 3 Std 4 Min 5 Sek", 183845),
+        ("Encore 2 j 3 h 4 min 5 s", 183845),
+        ("Restano 2g 3h 4m 5s", 183845),
+        ("Quedan 2 días 3 h 4 min 5 s", 183845),
+        ("Nog 2 dagen 3u 4m 5s", 183845),
+        ("Pozostało 2 dni 3 godz. 4 min 5 sek.", 183845),
+    ],
+)
+def test_all_supported_locale_countdown_units(text: str, expected_seconds: int) -> None:
+    assert EbayAuctionSearcher._parse_time_left(text) == expected_seconds

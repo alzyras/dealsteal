@@ -24,6 +24,100 @@ import requests
 LOGGER = logging.getLogger(__name__)
 
 
+# eBay uses localized countdown labels on each regional site. Keep the
+# aliases together so adding a locale cannot silently desynchronise the
+# tokenizer and its seconds mapping.
+_TIME_UNITS_SECONDS = {
+    # Days: English, German, French, Italian, Spanish, Dutch, Polish.
+    "day": 86400,
+    "days": 86400,
+    "d": 86400,
+    "tag": 86400,
+    "tage": 86400,
+    "t": 86400,
+    "jour": 86400,
+    "jours": 86400,
+    "j": 86400,
+    "giorno": 86400,
+    "giorni": 86400,
+    "g": 86400,
+    "día": 86400,
+    "días": 86400,
+    "dia": 86400,
+    "dias": 86400,
+    "dag": 86400,
+    "dagen": 86400,
+    "dzień": 86400,
+    "dzien": 86400,
+    "dni": 86400,
+    # Hours.
+    "hour": 3600,
+    "hours": 3600,
+    "hr": 3600,
+    "hrs": 3600,
+    "h": 3600,
+    "st": 3600,
+    "std": 3600,
+    "stunde": 3600,
+    "stunden": 3600,
+    "heure": 3600,
+    "heures": 3600,
+    "hora": 3600,
+    "horas": 3600,
+    "ora": 3600,
+    "ore": 3600,
+    "u": 3600,
+    "uur": 3600,
+    "uren": 3600,
+    "godz": 3600,
+    "godzina": 3600,
+    "godziny": 3600,
+    # Minutes.
+    "minute": 60,
+    "minutes": 60,
+    "min": 60,
+    "mins": 60,
+    "minuten": 60,
+    "minuto": 60,
+    "minutos": 60,
+    "minuut": 60,
+    "minut": 60,
+    "minuta": 60,
+    "minuty": 60,
+    "m": 60,
+    # Seconds.
+    "second": 1,
+    "seconds": 1,
+    "sec": 1,
+    "secs": 1,
+    "sekunde": 1,
+    "sekunden": 1,
+    "seconde": 1,
+    "secondes": 1,
+    "secondo": 1,
+    "secondi": 1,
+    "sek": 1,
+    "sekunda": 1,
+    "sekundy": 1,
+    "s": 1,
+}
+_TIME_UNIT_PATTERN = "|".join(
+    re.escape(unit) for unit in sorted(_TIME_UNITS_SECONDS, key=len, reverse=True)
+)
+_DAY_UNIT_PATTERN = "|".join(
+    re.escape(unit)
+    for unit, seconds in sorted(
+        _TIME_UNITS_SECONDS.items(), key=lambda item: len(item[0]), reverse=True
+    )
+    if seconds == 86400
+)
+_TIME_TOKEN_RE = re.compile(rf"(\d+)\s*({_TIME_UNIT_PATTERN})\b", re.IGNORECASE)
+_CLOCK_TIME_RE = re.compile(
+    rf"(?:(\d+)\s*(?:{_DAY_UNIT_PATTERN})\s*,?\s*)?" r"(\d+):(\d{2}):(\d{2})",
+    re.IGNORECASE,
+)
+
+
 class _SearchPageParser(HTMLParser):
     """Extract listing cards from eBay's server-rendered search page."""
 
@@ -666,78 +760,11 @@ class EbayAuctionSearcher:
     def _parse_time_left(text: str) -> int | None:
         if not text:
             return None
-        matches = re.findall(
-            r"(\d+)\s*(days?|d|tage?|t|jours?|jour|giorni?|giorno|"
-            r"días?|dias?|dag|dagen|dni|hours?|hrs?|h|stunden?|std|st|"
-            r"heures?|horas?|ore?|ora|u|uur|uren|godz|minutes?|mins?|"
-            r"minuten?|minutos?|minuut|m|seconds?|secs?|sec|sekunden?|"
-            r"secondes?|secondi?|s)\b",
-            text.lower(),
-        )
-        clock_match = re.search(
-            r"(?:(\d+)\s*(?:days?|d|tage?|t|jours?|jour|giorni?|giorno|"
-            r"días?|dias?|dag|dagen|dni)\s*,?\s*)?(\d+):(\d{2}):(\d{2})",
-            text.lower(),
-        )
+        text = text.lower()
+        matches = _TIME_TOKEN_RE.findall(text)
+        clock_match = _CLOCK_TIME_RE.search(text)
         if not matches and clock_match is None:
             return None
-        units = {
-            "d": 86400,
-            "day": 86400,
-            "days": 86400,
-            "t": 86400,
-            "tag": 86400,
-            "tage": 86400,
-            "jour": 86400,
-            "jours": 86400,
-            "giorno": 86400,
-            "giorni": 86400,
-            "día": 86400,
-            "días": 86400,
-            "dia": 86400,
-            "dias": 86400,
-            "dag": 86400,
-            "dagen": 86400,
-            "dni": 86400,
-            "h": 3600,
-            "hr": 3600,
-            "hrs": 3600,
-            "hour": 3600,
-            "hours": 3600,
-            "st": 3600,
-            "std": 3600,
-            "stunde": 3600,
-            "stunden": 3600,
-            "heure": 3600,
-            "heures": 3600,
-            "hora": 3600,
-            "horas": 3600,
-            "ora": 3600,
-            "ore": 3600,
-            "u": 3600,
-            "uur": 3600,
-            "uren": 3600,
-            "godz": 3600,
-            "m": 60,
-            "min": 60,
-            "mins": 60,
-            "minute": 60,
-            "minutes": 60,
-            "minuten": 60,
-            "minuto": 60,
-            "minutos": 60,
-            "minuut": 60,
-            "s": 1,
-            "sec": 1,
-            "secs": 1,
-            "second": 1,
-            "seconds": 1,
-            "sekunde": 1,
-            "sekunden": 1,
-            "seconde": 1,
-            "secondes": 1,
-            "secondi": 1,
-        }
         if clock_match:
             days, hours, minutes, clock_seconds = (
                 int(part or 0) for part in clock_match.groups()
@@ -747,7 +774,7 @@ class EbayAuctionSearcher:
             # once as ``6 days`` and again as the clock. Prefer the complete
             # clock representation so multi-day countdowns are not doubled.
             return days * 86400 + hours * 3600 + minutes * 60 + clock_seconds
-        return sum(int(value) * units[unit] for value, unit in matches)
+        return sum(int(value) * _TIME_UNITS_SECONDS[unit] for value, unit in matches)
 
     @staticmethod
     def _time_string_to_seconds(value: str) -> int:
