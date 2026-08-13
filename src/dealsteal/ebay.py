@@ -597,6 +597,12 @@ class EbayAuctionSearcher:
                             item["location"],
                         )
                         continue
+                    if not item["shipping_known"]:
+                        LOGGER.info(
+                            "Skipping listing %s with unknown shipping cost",
+                            item["item_id"],
+                        )
+                        continue
                     if not self._within_filters(
                         item, min_price, max_price, max_time_remaining
                     ):

@@ -36,7 +36,7 @@ visible origin is outside the EU are skipped too; listings without a country
 are skipped because an eBay marketplace country is not proof of seller origin.
 An explicit listing location is required for the no-import-cost calculation. If
 eBay does not show a shipping amount, it is reported as unknown rather than
-free.
+free and the listing is excluded from search results.
 
 The Python API exposes the same split directly through
 `search_ebay_auctions(...)` and `search_ebay_buy_it_now(...)`.

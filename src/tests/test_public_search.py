@@ -46,9 +46,10 @@ def _response(
 
 
 class FakeSession:
-    def __init__(self) -> None:
+    def __init__(self, body: str = SEARCH_HTML) -> None:
         self.headers: dict[str, str] = {}
         self.calls: list[tuple[str, str, dict[str, str] | None]] = []
+        self.body = body
 
     def request(
         self,
@@ -62,7 +63,7 @@ class FakeSession:
         self.calls.append((method, url, params))
         if "ebayadvsearch" in url:
             return _response("<title>Advanced Search | eBay</title>", url=url)
-        return _response(SEARCH_HTML, url=url)
+        return _response(self.body, url=url)
 
 
 def test_parser_keeps_auction_cards_and_ignores_non_auctions() -> None:
@@ -201,6 +202,18 @@ def test_missing_shipping_is_unknown_not_free() -> None:
     assert item["shipping_cost"] == "Unknown"
     assert item["shipping_cost_value"] is None
     assert item["landed_price"] == "Unknown"
+
+
+def test_search_excludes_unknown_shipping() -> None:
+    body = SEARCH_HTML.replace(
+        '<div class="s-card__attribute-row">+€5.00 delivery</div>\n', ""
+    )
+    session = FakeSession(body)
+    searcher = EbayAuctionSearcher(session=session, min_request_interval=0, max_pages=1)
+
+    results = searcher.search_ebay_buy_it_now("gopro", countries=["DE"])
+
+    assert results == []
 
 
 def test_missing_origin_country_is_marked_unknown_for_public_formatter() -> None:
