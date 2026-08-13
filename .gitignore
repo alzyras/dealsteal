@@ -144,3 +144,5 @@ poetry.lock
 
 debug_*
 test_*
+
+.ruff_cache
