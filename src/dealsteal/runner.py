@@ -126,6 +126,8 @@ def main() -> None:
                     f"Time remaining: {auction['time_remaining']}\n"
                     f"Listing type: {auction['listing_type']}\n"
                     f"Shipping: {auction['shipping_cost']}\n"
+                    f"Import duty: {auction['import_duty']}\n"
+                    f"Import VAT: {auction['import_vat']}\n"
                     f"Landed price: {auction['landed_price']}\n"
                     f"URL: {auction['url']}\n"
                     f"Category: {auction['category']}"

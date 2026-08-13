@@ -17,12 +17,12 @@ SEARCH_HTML = """
       </div>
     </a>
     <div class="s-card__subtitle">Pre-Owned</div>
-    <span class="s-card__price">£150.00</span>
+    <span class="s-card__price">€150.00</span>
     <span class="s-card__time-left">2h 5m left</span>
     <span class="s-card__time-end">(Today)</span>
     <div class="s-card__attribute-row">1 bid</div>
-    <div class="s-card__attribute-row">+£5.00 delivery</div>
-    <div class="s-card__attribute-row">from United Kingdom</div>
+    <div class="s-card__attribute-row">+€5.00 delivery</div>
+    <div class="s-card__attribute-row">from Germany</div>
   </li>
   <li class="s-card" data-listingid="456">
     <a class="s-card__link" href="https://www.ebay.co.uk/itm/456">
@@ -88,7 +88,7 @@ def test_search_uses_public_html_and_normalizes_auction_json() -> None:
 
     results = searcher.search_ebay_auctions(
         "gopro",
-        countries=["GB"],
+        countries=["DE"],
         min_price=100,
         max_price=200,
         max_time_remaining=3 * 3600,
@@ -96,11 +96,16 @@ def test_search_uses_public_html_and_normalizes_auction_json() -> None:
 
     assert len(results) == 1
     assert results[0]["item_id"] == "123"
-    assert results[0]["price"] == "150.00 GBP"
+    assert results[0]["price"] == "150.00 EUR"
     assert results[0]["listing_type"] == "Auction"
-    assert results[0]["location"] == "United Kingdom"
+    assert results[0]["location"] == "Germany"
     assert results[0]["bid_count"] == 1
     assert results[0]["condition_display_name"] == "Pre-Owned"
+    assert results[0]["origin_region"] == "EU"
+    assert results[0]["import_cost_known"] is True
+    assert results[0]["import_duty"] == "0.00 EUR"
+    assert results[0]["import_vat"] == "0.00 EUR"
+    assert results[0]["origin_country_source"] == "listing"
     assert session.calls[0][2]["LH_Auction"] == "1"
 
 
@@ -113,18 +118,66 @@ def test_buy_it_now_search_is_separate_and_includes_landed_shipping() -> None:
         page_size=120,
     )
 
-    results = searcher.search_ebay_buy_it_now("gopro", countries=["GB"])
+    results = searcher.search_ebay_buy_it_now("gopro", countries=["DE"])
 
     result = next(item for item in results if item["item_id"] == "123")
     assert result["listing_type"] == "Buy It Now"
     assert result["time_remaining"] == "2:05:00"
     assert result["end_time"] != "Unknown"
     assert result["shipping_cost_value"] == 5.0
-    assert result["shipping_currency"] == "GBP"
+    assert result["shipping_currency"] == "EUR"
     assert result["shipping_known"] is True
-    assert result["landed_price"] == "155.00 GBP"
+    assert result["landed_price"] == "155.00 EUR"
+    assert result["origin_country_source"] == "listing"
     assert session.calls[0][2]["LH_BIN"] == "1"
     assert "LH_Auction" not in session.calls[0][2]
+
+
+def test_non_eu_sites_are_skipped() -> None:
+    session = FakeSession()
+    searcher = EbayAuctionSearcher(session=session, min_request_interval=0, max_pages=1)
+
+    assert searcher.search_ebay_buy_it_now("server", countries=["GB", "CH"]) == []
+    assert session.calls == []
+
+
+def test_non_eu_origin_listing_is_skipped_even_on_eu_site() -> None:
+    searcher = EbayAuctionSearcher(min_request_interval=0)
+
+    item = searcher._format_public_item(
+        {
+            "item_id": "uk-origin",
+            "title": "Imported PC",
+            "price_text": "EUR 100,00",
+            "time_left": "",
+            "attribute_rows": ["+ EUR 10,00 delivery", "from United Kingdom"],
+        },
+        "DE",
+        "www.ebay.de",
+        listing_type="buy_it_now",
+    )
+
+    assert item is None
+
+
+@pytest.mark.parametrize("location", ["Großbritannien", "Kanada", "United Kingdom"])
+def test_localized_non_eu_origin_is_skipped(location: str) -> None:
+    searcher = EbayAuctionSearcher(min_request_interval=0)
+
+    item = searcher._format_public_item(
+        {
+            "item_id": "localized-origin",
+            "title": "Imported PC",
+            "price_text": "EUR 100,00",
+            "time_left": "",
+            "attribute_rows": [f"from {location}"],
+        },
+        "DE",
+        "www.ebay.de",
+        listing_type="buy_it_now",
+    )
+
+    assert item is None
 
 
 def test_missing_shipping_is_unknown_not_free() -> None:
@@ -148,6 +201,29 @@ def test_missing_shipping_is_unknown_not_free() -> None:
     assert item["shipping_cost"] == "Unknown"
     assert item["shipping_cost_value"] is None
     assert item["landed_price"] == "Unknown"
+
+
+def test_eu_marketplace_is_country_fallback_when_location_is_not_shown() -> None:
+    searcher = EbayAuctionSearcher(min_request_interval=0)
+
+    item = searcher._format_public_item(
+        {
+            "item_id": "marketplace-origin",
+            "title": "Mini PC",
+            "price_text": "EUR 100,00",
+            "time_left": "",
+            "attribute_rows": ["+ EUR 10,00 delivery"],
+        },
+        "DE",
+        "www.ebay.de",
+        listing_type="buy_it_now",
+    )
+
+    assert item is not None
+    assert item["origin_country"] == "DE"
+    assert item["origin_country_source"] == "marketplace"
+    assert item["import_cost_known"] is True
+    assert item["landed_price"] == "110.00 EUR"
 
 
 def test_challenge_response_is_not_treated_as_empty_search() -> None:

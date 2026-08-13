@@ -28,8 +28,14 @@ list of query objects. Existing fields such as `keywords`, `countries`,
 `min_price`, `max_price`, `category_ids`, and `condition_ids` are supported.
 Set `"listing_type": "buy_it_now"` (also `bin` or `fixed_price`) to search
 fixed-price listings separately; the default is `auction`. Results expose
-`shipping_known`, `shipping_cost_value`, and `landed_price`. If eBay does not
-show a shipping amount, it is reported as unknown rather than free.
+`shipping_known`, `shipping_cost_value`, `origin_region`, `import_duty`,
+`import_vat`, `import_cost_known`, `origin_country_source`, and `landed_price`.
+The default site list is
+inside the EU customs union, so UK and Switzerland are skipped. Listings whose
+visible origin is outside the EU are skipped too; listings without a country
+are kept with `origin_country_source="marketplace"`, based on the EU-only
+marketplace, while an explicit listing location wins. If eBay does not show a
+shipping amount, it is reported as unknown rather than free.
 
 The Python API exposes the same split directly through
 `search_ebay_auctions(...)` and `search_ebay_buy_it_now(...)`.

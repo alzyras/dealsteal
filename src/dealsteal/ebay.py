@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
 from typing import Any
@@ -266,7 +267,114 @@ class EbayAuctionSearcher:
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     )
-    EUROPEAN_COUNTRIES = ["GB", "DE", "FR", "IT", "ES"]
+    # Keep the default search inside the EU customs union. The UK and
+    # Switzerland are European sites but are not duty-free destinations for LT.
+    EUROPEAN_COUNTRIES = ["AT", "BE", "DE", "ES", "FR", "IE", "IT", "NL", "PL"]
+    EU_COUNTRY_CODES = frozenset(
+        {
+            "AT",
+            "BE",
+            "BG",
+            "HR",
+            "CY",
+            "CZ",
+            "DE",
+            "DK",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GR",
+            "HU",
+            "IE",
+            "IT",
+            "LT",
+            "LU",
+            "LV",
+            "MT",
+            "NL",
+            "PL",
+            "PT",
+            "RO",
+            "SE",
+            "SI",
+            "SK",
+        }
+    )
+    EU_ORIGIN_MARKERS = (
+        "austria",
+        "osterreich",
+        "belgium",
+        "belgique",
+        "belgie",
+        "bulgaria",
+        "croatia",
+        "cyprus",
+        "czech republic",
+        "czechia",
+        "denmark",
+        "estonia",
+        "finland",
+        "france",
+        "germany",
+        "deutschland",
+        "greece",
+        "hungary",
+        "ireland",
+        "italy",
+        "italia",
+        "latvia",
+        "lithuania",
+        "luxembourg",
+        "malta",
+        "netherlands",
+        "nederland",
+        "poland",
+        "polska",
+        "portugal",
+        "romania",
+        "slovakia",
+        "slovenia",
+        "spain",
+        "espana",
+        "sweden",
+    )
+    NON_EU_ORIGIN_MARKERS = (
+        "united kingdom",
+        "great britain",
+        "england",
+        "scotland",
+        "wales",
+        "grossbritannien",
+        "grobritannien",
+        "vereinigtes konigreich",
+        "royaume uni",
+        "regno unito",
+        "reino unido",
+        "verenigd koninkrijk",
+        "zjednoczone krolestwo",
+        "uk",
+        "switzerland",
+        "schweiz",
+        "suisse",
+        "svizzera",
+        "suiza",
+        "norway",
+        "norwegen",
+        "norvege",
+        "norvegia",
+        "united states",
+        "usa",
+        "canada",
+        "kanada",
+        "china",
+        "japan",
+        "hong kong",
+        "australia",
+        "singapore",
+        "turkey",
+        "ukraine",
+    )
     SITE_DOMAINS = {
         "US": "www.ebay.com",
         "CA": "www.ebay.ca",
@@ -341,9 +449,11 @@ class EbayAuctionSearcher:
             240,
             max(
                 1,
-                int(os.getenv("EBAY_PAGE_SIZE", "120"))
-                if page_size is None
-                else page_size,
+                (
+                    int(os.getenv("EBAY_PAGE_SIZE", "120"))
+                    if page_size is None
+                    else page_size
+                ),
             ),
         )
         self.timeout = (
@@ -436,7 +546,7 @@ class EbayAuctionSearcher:
 
         for country in countries_to_search:
             country_code, host = self._resolve_site(country)
-            if host is None:
+            if host is None or country_code not in self.EU_COUNTRY_CODES:
                 LOGGER.warning("Skipping unsupported eBay country/site: %s", country)
                 continue
 
@@ -710,6 +820,9 @@ class EbayAuctionSearcher:
         end_time = now + timedelta(seconds=seconds) if seconds is not None else None
         item_id = str(raw_item.get("item_id", "Unknown"))
         url = raw_item.get("url") or f"https://{host}/itm/{item_id}"
+        title = raw_item.get("title") or "No title"
+        if title.strip().lower() == "shop on ebay":
+            return None
         rows = raw_item.get("attribute_rows", [])
         location = next(
             (
@@ -730,6 +843,12 @@ class EbayAuctionSearcher:
             ),
             "Unknown",
         )
+        origin_region = self._origin_region(location, country)
+        if origin_region == "Non-EU":
+            LOGGER.info("Skipping non-EU-origin listing %s from %s", item_id, location)
+            return None
+        origin_country = location if location != "Unknown" else country
+        origin_country_source = "listing" if location != "Unknown" else "marketplace"
         bid_count = next(
             (
                 int(match.group(1))
@@ -758,10 +877,13 @@ class EbayAuctionSearcher:
             and shipping_value is not None
             else None
         )
+        import_cost_known = origin_region == "EU"
+        import_duty_value = 0.0 if import_cost_known else None
+        import_vat_value = 0.0 if import_cost_known else None
 
         return {
             "country": country,
-            "title": raw_item.get("title") or "No title",
+            "title": title,
             "price": f"{price_value:.2f} {currency}",
             "time_remaining": (
                 str(timedelta(seconds=seconds)) if seconds is not None else "Unknown"
@@ -786,10 +908,28 @@ class EbayAuctionSearcher:
             "shipping_cost_value": shipping_value,
             "shipping_currency": shipping_currency,
             "shipping_known": shipping_known,
-            "landed_price": f"{landed_price:.2f} {currency}"
-            if landed_price is not None
-            else "Unknown",
+            "origin_region": origin_region,
+            "import_cost_known": import_cost_known,
+            "import_duty": (
+                f"{import_duty_value:.2f} {currency}"
+                if import_duty_value is not None
+                else "Unknown"
+            ),
+            "import_duty_value": import_duty_value,
+            "import_vat": (
+                f"{import_vat_value:.2f} {currency}"
+                if import_vat_value is not None
+                else "Unknown"
+            ),
+            "import_vat_value": import_vat_value,
+            "landed_price": (
+                f"{landed_price:.2f} {currency}"
+                if landed_price is not None and import_cost_known
+                else "Unknown"
+            ),
             "location": location,
+            "origin_country": origin_country,
+            "origin_country_source": origin_country_source,
             "gallery_url": raw_item.get("gallery_url") or "No URL available",
             "bid_count": bid_count,
         }
@@ -840,6 +980,31 @@ class EbayAuctionSearcher:
                 )
             return row, None, None, False
         return "Unknown", None, None, False
+
+    @classmethod
+    def _origin_region(cls, location: str, marketplace_country: str) -> str:
+        """Infer customs origin, conservatively preferring visible location."""
+        normalized = re.sub(
+            r"[^a-z0-9 ]+",
+            " ",
+            unicodedata.normalize("NFKD", location)
+            .encode("ascii", "ignore")
+            .decode()
+            .lower(),
+        )
+        if any(
+            re.search(rf"\b{re.escape(marker)}\b", normalized)
+            for marker in cls.NON_EU_ORIGIN_MARKERS
+        ):
+            return "Non-EU"
+        if any(
+            re.search(rf"\b{re.escape(marker)}\b", normalized)
+            for marker in cls.EU_ORIGIN_MARKERS
+        ):
+            return "EU"
+        if marketplace_country.upper() in cls.EU_COUNTRY_CODES:
+            return "EU"
+        return "Unknown"
 
     @staticmethod
     def _seller_details(rows: list[str]) -> tuple[str, str, str]:
