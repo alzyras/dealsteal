@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import requests
 
@@ -172,3 +174,39 @@ def test_localized_time_and_listing_fields_are_normalized() -> None:
 )
 def test_all_supported_locale_countdown_units(text: str, expected_seconds: int) -> None:
     assert EbayAuctionSearcher._parse_time_left(text) == expected_seconds
+
+
+@pytest.mark.parametrize(
+    "time_left",
+    [
+        "Ends in 2 days 3 hours 4 minutes 5 seconds",
+        "Noch 2 Tage 3 Std 4 Min 5 Sek",
+        "Encore 2 j 3 h 4 min 5 s",
+        "Restano 2g 3h 4m 5s",
+        "Quedan 2 días 3 h 4 min 5 s",
+        "Nog 2 dagen 3u 4m 5s",
+        "Pozostało 2 dni 3 godz. 4 min 5 sek.",
+    ],
+)
+def test_formatted_end_time_matches_countdown(time_left: str) -> None:
+    before = datetime.now(timezone.utc)
+    item = EbayAuctionSearcher(min_request_interval=0)._format_public_item(
+        {
+            "item_id": "date-check",
+            "title": "Date check",
+            "price_text": "EUR 1,00",
+            "time_left": time_left,
+        },
+        "DE",
+        "www.ebay.de",
+    )
+    after = datetime.now(timezone.utc)
+
+    assert item is not None
+    end_time = datetime.fromisoformat(item["end_time"].replace("Z", "+00:00"))
+    expected = 183845
+    assert (
+        before + timedelta(seconds=expected, milliseconds=-1)
+        <= end_time
+        <= (after + timedelta(seconds=expected))
+    )
