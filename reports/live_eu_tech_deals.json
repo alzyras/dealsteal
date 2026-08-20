@@ -5,7 +5,9 @@
     "country": "LT",
     "postal_code": "01100",
     "shipping_confirmed_at_checkout": false,
-    "shipping_page_context": "eBay displayed shipping to DE postal code 44100 during verification"
+    "shipping_country_confirmed": true,
+    "shipping_postal_code_observed": "44100",
+    "shipping_page_context": "eBay header confirmed Lithuania; displayed quotes were for Lithuanian postal code 44100, while the configured postal code is 01100"
   },
   "scoring": {
     "minimum_net_roi": 0.4,
