@@ -143,7 +143,16 @@
       "listing_types": ["auction", "buy_it_now"],
       "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
       "match": {"required": [["rtx 3060 ti"], ["8gb", "8 gb"]], "excluded": ["laptop", "parts", "broken", "waterblock", "repair"]},
-      "tiers": [{"id": "tested-used", "reference_price": {"amount": 250, "currency": "EUR"}}],
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 230, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "gopro-hero12-black",
+      "search_terms": ["GoPro HERO12 Black 5.3K -parts -broken -dummy"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["gopro hero12", "gopro hero 12"], ["black"]], "excluded": ["parts", "broken", "dummy", "case only", "battery only"]},
+      "tiers": [{"id": "used-like-new", "reference_price": {"amount": 320, "currency": "EUR"}}],
       "max_pages": 1
     }
   ]
