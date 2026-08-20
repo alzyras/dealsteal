@@ -15,7 +15,7 @@ import os
 import re
 import time
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urlsplit
@@ -826,9 +826,7 @@ class EbayAuctionSearcher:
     ) -> dict[str, Any] | None:
         time_left_text = raw_item.get("time_left", "")
         seconds = self._parse_time_left(time_left_text)
-        if listing_type == "buy_it_now":
-            normalized_listing_type = "Buy It Now"
-        elif listing_type == "all" and seconds is None:
+        if listing_type == "buy_it_now" or (listing_type == "all" and seconds is None):
             normalized_listing_type = "Buy It Now"
         else:
             normalized_listing_type = "Auction"
@@ -838,7 +836,7 @@ class EbayAuctionSearcher:
         price_value, currency = self._parse_price(
             raw_item.get("price_text", ""), country
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         end_time = now + timedelta(seconds=seconds) if seconds is not None else None
         item_id = str(raw_item.get("item_id", "Unknown"))
         url = raw_item.get("url") or f"https://{host}/itm/{item_id}"
@@ -1135,7 +1133,7 @@ class EbayAuctionSearcher:
     def _parse_end_time(end_time: str) -> datetime:
         value = end_time.replace("Z", "+00:00")
         parsed = datetime.fromisoformat(value)
-        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
     @staticmethod
     def _format_item(item: dict[str, Any], time_remaining: timedelta) -> dict[str, Any]:

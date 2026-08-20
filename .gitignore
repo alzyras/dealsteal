@@ -1,6 +1,8 @@
 store/item_queries/*
 .env
 store/items.txt
+config.local.json
+store/dealsteal.sqlite3*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

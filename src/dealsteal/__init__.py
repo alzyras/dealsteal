@@ -34,6 +34,3 @@ def initialize() -> None:
         LOGGER.info(env_message)
     else:
         LOGGER.warning(env_message)
-
-
-initialize()

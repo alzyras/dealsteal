@@ -1,0 +1,27 @@
+{
+  "destination": {
+    "country": "LT",
+    "postal_code": "01100",
+    "currency": "EUR"
+  },
+  "allowed_origin_zones": ["EU"],
+  "reporting_currency": "EUR",
+  "minimum_net_roi": 0.40,
+  "costs": {
+    "selling_fee_rate": 0.0,
+    "purchase_overhead": 0.0,
+    "resale_overhead": 0.0,
+    "repair_reserve": 0.0,
+    "risk_reserve": 0.0,
+    "fx_buffer_rate": 0.02
+  },
+  "database_path": "store/dealsteal.sqlite3",
+  "search_cache_seconds": 600,
+  "watch_interval_seconds": 900,
+  "request_budget": 500,
+  "max_pages": 2,
+  "max_concurrency": 4,
+  "per_host_interval": 2.0,
+  "request_timeout": 20.0,
+  "max_rate_age_days": 7
+}

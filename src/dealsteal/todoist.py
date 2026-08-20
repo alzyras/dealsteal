@@ -30,7 +30,7 @@ class TodoistClient:
         """
         if not os.path.exists(self.items_file):
             return False
-        with open(self.items_file, "r") as file:
+        with open(self.items_file, encoding="utf-8") as file:
             used_items = file.read().splitlines()
         return item_id in used_items
 
@@ -98,10 +98,10 @@ class TodoistClient:
     def submit_task(
         self,
         title: str,
-        description: str = None,
-        due_date: str = None,
-        project_id: str = None,
-        item_id: str = None,
+        description: str | None = None,
+        due_date: str | None = None,
+        project_id: str | None = None,
+        item_id: str | None = None,
     ) -> dict:
         """
         Submit a task to Todoist.

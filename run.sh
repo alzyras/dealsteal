@@ -1,2 +1,2 @@
 uv sync
-uv run python src/dealsteal/runner.py
+uv run dealsteal scan --jsonl

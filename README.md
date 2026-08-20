@@ -1,53 +1,83 @@
 # DealSteal
-![Deal Steal](dealsteal.png)
 
-Deal Steal searches public eBay auction pages directly. It does not require an
-eBay application id, OAuth token, browser automation, or an eBay login.
+DealSteal scans public eBay pages without an eBay login, application token, or
+browser. Search pages are used for discovery; promising candidates are checked
+on their public item page for destination-specific shipping, seller origin,
+listing type, and an absolute UTC auction end time.
 
-## Requirements
-
-- Python 3.11
-- UV (https://github.com/astral-sh/uv)
-
-## Installation
-
-Install with:
+## Setup
 
 ```sh
+cp config.example.json config.local.json
 uv sync --extra dev
 ```
 
-Run the JSON queries with:
+Edit `config.local.json` with the real destination postal code and your resale
+cost assumptions. The example defaults to Lithuania, EU-origin sellers, EUR,
+and a 40% net ROI threshold. The local config and SQLite database are ignored
+by Git.
 
-```sh
-uv run dealsteal
+## Product profiles
+
+Version 2 profiles can be stored in any JSON file under `store/item_queries/`:
+
+```json
+{
+  "version": 2,
+  "products": [
+    {
+      "id": "thinkcentre-m920s-i7-8700",
+      "search_terms": ["Lenovo ThinkCentre M920s i7-8700 SFF"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "FR", "PL"],
+      "match": {
+        "required": [["m920s"], ["i7-8700", "i7 8700"]],
+        "excluded": ["micro", "parts", "broken"]
+      },
+      "tiers": [
+        {
+          "id": "used-complete",
+          "reference_price": {"amount": 300, "currency": "EUR"},
+          "conditions": ["used", "pre-owned"]
+        }
+      ],
+      "max_time_remaining_seconds": 86400,
+      "max_pages": 2
+    }
+  ]
+}
 ```
 
-Each file in `store/item_queries/*.json` may contain one query object or a
-list of query objects. Existing fields such as `keywords`, `countries`,
-`min_price`, `max_price`, `category_ids`, and `condition_ids` are supported.
-Set `"listing_type": "buy_it_now"` (also `bin` or `fixed_price`) to search
-fixed-price listings separately; the default is `auction`. Results expose
-`shipping_known`, `shipping_cost_value`, `origin_region`, `import_duty`,
-`import_vat`, `import_cost_known`, `origin_country_source`, and `landed_price`.
-The default site list is
-inside the EU customs union, so UK and Switzerland are skipped. Listings whose
-visible origin is outside the EU are skipped too; listings without a country
-are skipped because an eBay marketplace country is not proof of seller origin.
-An explicit listing location is required for the no-import-cost calculation. If
-eBay does not show a shipping amount, it is reported as unknown rather than
-free and the listing is excluded from search results.
+Required groups are ANDed; alternatives inside a group are ORed. A listing
+must match exactly one tier to be scored. Profiles without tiers still provide
+discovery results but cannot be called profitable deals.
 
-The Python API exposes the same split directly through
-`search_ebay_auctions(...)` and `search_ebay_buy_it_now(...)`.
+Legacy files containing `keywords`, `countries`, `listing_type`, price, category,
+and condition fields continue to work. Convert them with:
 
-The searcher uses one persistent `requests` session, requests up to two pages
-per site by default, and honors `Retry-After` when eBay asks the client to
-slow down. Tune this behavior with `EBAY_MAX_PAGES`, `EBAY_PAGE_SIZE`,
-`EBAY_MIN_REQUEST_INTERVAL`, and `EBAY_REQUEST_TIMEOUT`. It uses one stable
-user agent; it does not rotate identities or attempt to bypass eBay access
-controls.
+```sh
+uv run dealsteal migrate store/item_queries/*.json --output profiles.v2.json
+```
 
-Todoist synchronization is optional. Set `TODOIST_TOKEN` and optionally
-`TODOIST_PROJECT` to submit found auctions; without them, the runner only logs
-the results.
+## Commands
+
+```sh
+uv run dealsteal validate
+uv run dealsteal scan --jsonl
+uv run dealsteal scan --deals-only
+uv run dealsteal watch --interval 15m --jsonl
+uv run dealsteal report --deals-only
+```
+
+The JSONL scanner prints page progress, enriched listings, qualified deals, and
+a final statistics record. Deal results include landed acquisition cost, net
+resale proceeds, net profit, ROI, and an auction maximum safe bid.
+
+Listings with unknown destination shipping, import treatment, currency
+conversion, absolute auction time, or listing type are retained with rejection
+reasons but never qualify as deals. Shipping and import amounts are estimates
+until checkout, so the output is a decision aid rather than a purchase promise.
+
+The scanner uses a stable user agent, per-host throttling, bounded concurrency,
+cache, retry-after handling, and a host circuit breaker. It does not rotate
+identities or attempt to bypass eBay access controls.

@@ -17,11 +17,3 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: trailing-whitespace
--   repo: local
-    hooks:
-    -   id: poetry-build
-        name: Poetry Build
-        entry: poetry build
-        language: system
-        pass_filenames: false
-        always_run: true

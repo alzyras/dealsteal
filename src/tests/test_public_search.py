@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import requests
@@ -324,7 +324,7 @@ def test_all_supported_locale_countdown_units(text: str, expected_seconds: int) 
     ],
 )
 def test_formatted_end_time_matches_countdown(time_left: str) -> None:
-    before = datetime.now(timezone.utc)
+    before = datetime.now(UTC)
     item = EbayAuctionSearcher(min_request_interval=0)._format_public_item(
         {
             "item_id": "date-check",
@@ -335,7 +335,7 @@ def test_formatted_end_time_matches_countdown(time_left: str) -> None:
         "DE",
         "www.ebay.de",
     )
-    after = datetime.now(timezone.utc)
+    after = datetime.now(UTC)
 
     assert item is not None
     end_time = datetime.fromisoformat(item["end_time"].replace("Z", "+00:00"))

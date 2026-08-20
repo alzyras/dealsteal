@@ -1,145 +1,190 @@
-"""Run all JSON auction queries and optionally mirror results to Todoist."""
+"""Command-line entry points for batch and watch-mode deal scanning."""
 
 from __future__ import annotations
 
+import argparse
 import glob
 import json
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+import time
 from pathlib import Path
 from typing import Any
 
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:  # pragma: no cover - optional convenience dependency
-    pass
-
-try:
-    from .ebay import EbayAuctionSearcher
-    from .todoist import TodoistClient
-except ImportError:  # pragma: no cover - supports `python src/.../runner.py`
-    from ebay import EbayAuctionSearcher
-    from todoist import TodoistClient
+from .config import load_config, load_profiles, migrate_legacy_queries
+from .scanner import MarketplaceScanner
+from .storage import SQLiteStore
 
 LOGGER = logging.getLogger(__name__)
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
-        LOGGER.warning("Ignoring invalid integer %s=%r", name, os.getenv(name))
-        return default
+def _default_paths() -> list[str]:
+    return sorted(glob.glob(os.getenv("ITEM_QUERY_GLOB", "store/item_queries/*.json")))
 
 
-def _query_files() -> list[str]:
-    pattern = os.getenv("ITEM_QUERY_GLOB", "store/item_queries/*.json")
-    return sorted(glob.glob(pattern))
+def _paths(values: list[str] | None) -> list[str]:
+    return values or _default_paths()
 
 
-def _load_queries(path: str) -> list[dict[str, Any]]:
-    with open(path, encoding="utf-8") as file:
-        data = json.load(file)
-    if isinstance(data, list):
-        return [item for item in data if isinstance(item, dict)]
-    return [data] if isinstance(data, dict) else []
+def _duration(value: str) -> int:
+    value = value.strip().lower()
+    units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+    if value[-1:] in units:
+        return max(1, int(float(value[:-1]) * units[value[-1]]))
+    return max(1, int(value))
 
 
-def _due_date(end_time: str) -> str:
-    if end_time and end_time != "Unknown":
-        try:
-            parsed = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-            return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        except ValueError:
-            LOGGER.debug("Could not parse auction end time %r", end_time)
-    return (datetime.now(timezone.utc) + timedelta(days=1)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
+def _json_print(value: Any) -> None:
+    print(json.dumps(value, ensure_ascii=False, default=str))
+
+
+def _add_profile_paths(command: argparse.ArgumentParser) -> None:
+    command.add_argument("paths", nargs="*", help="profile/query JSON files")
+    command.add_argument("--config", default=None, help="local scanner config JSON")
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="dealsteal")
+    subcommands = parser.add_subparsers(dest="command")
+
+    validate = subcommands.add_parser(
+        "validate", help="validate profile and scanner configuration"
+    )
+    _add_profile_paths(validate)
+
+    migrate = subcommands.add_parser(
+        "migrate", help="convert legacy query JSON to version 2"
+    )
+    migrate.add_argument("paths", nargs="*", help="legacy query JSON files")
+    migrate.add_argument(
+        "--output", default=None, help="write migrated JSON to this path"
     )
 
+    scan = subcommands.add_parser("scan", help="run one batch scan")
+    _add_profile_paths(scan)
+    scan.add_argument(
+        "--jsonl", action="store_true", help="emit progress and results as JSONL"
+    )
+    scan.add_argument(
+        "--deals-only", action="store_true", help="suppress non-deal events"
+    )
 
-def main() -> None:
-    """Search configured JSON files without requiring eBay credentials."""
+    watch = subcommands.add_parser(
+        "watch", help="repeat scans using persistent SQLite state"
+    )
+    _add_profile_paths(watch)
+    watch.add_argument("--interval", default=None, help="override interval, e.g. 15m")
+    watch.add_argument("--once", action="store_true", help="run one scan and exit")
+    watch.add_argument(
+        "--jsonl", action="store_true", help="emit progress and results as JSONL"
+    )
+
+    report = subcommands.add_parser("report", help="read recent stored scan results")
+    report.add_argument("--config", default=None, help="local scanner config JSON")
+    report.add_argument("--limit", type=int, default=100)
+    report.add_argument("--deals-only", action="store_true")
+    return parser
+
+
+def _load_dotenv() -> None:
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv()
+    except ImportError:
+        return
+
+
+def _run_scan(args: argparse.Namespace) -> int:
+    config = load_config(getattr(args, "config", None))
+    paths = _paths(getattr(args, "paths", None))
+    if not paths:
+        LOGGER.error("No profile/query JSON files found")
+        return 2
+    profiles = load_profiles(paths)
+    scanner = MarketplaceScanner(config)
+
+    def emit(event: dict[str, Any]) -> None:
+        if getattr(args, "deals_only", False) and event.get("event") != "deal":
+            return
+        if getattr(args, "jsonl", False):
+            _json_print(event)
+
+    result = scanner.scan(profiles, emit=emit)
+    if getattr(args, "jsonl", False):
+        _json_print({"event": "scan_complete", **result})
+    elif getattr(args, "deals_only", False):
+        _json_print(
+            {
+                "scan_id": result["scan_id"],
+                "deals": result["deals"],
+                "stats": result["stats"],
+            }
+        )
+    else:
+        _json_print(result)
+    scanner.store.close()
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    _load_dotenv()
     logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    searcher = EbayAuctionSearcher()
-    todoist_token = os.getenv("TODOIST_TOKEN")
-    todoist = TodoistClient(todoist_token) if todoist_token else None
-    project_id = os.getenv("TODOIST_PROJECT")
-    max_time_remaining = _int_env("MAX_TIME_REMAINING", 28800)
-    query_files = _query_files()
-
-    if not query_files:
-        LOGGER.warning("No item query files matched %s", os.getenv("ITEM_QUERY_GLOB"))
-        return
-    if todoist is None:
-        LOGGER.info("TODOIST_TOKEN is not set; search results will only be logged")
-
-    for json_file in query_files:
-        for query in _load_queries(json_file):
-            keywords = query.get("keywords")
-            if not keywords:
-                LOGGER.warning("Skipping query without keywords in %s", json_file)
-                continue
-            LOGGER.info("Searching %s: %s", Path(json_file).name, query)
-            listing_type = str(query.get("listing_type", "auction")).lower()
-            is_buy_it_now = listing_type in {"buy_it_now", "bin", "fixed_price"}
-            search_kwargs = {
-                "countries": query.get("countries"),
-                "max_price": query.get("max_price"),
-                "min_price": query.get("min_price"),
-                "category_ids": query.get("category_ids"),
-                "condition_ids": query.get("condition_ids"),
+    args = _parser().parse_args(argv)
+    command = args.command or "scan"
+    if command == "validate":
+        config = load_config(args.config)
+        profiles = load_profiles(_paths(args.paths))
+        _json_print(
+            {
+                "valid": True,
+                "profiles": len(profiles),
+                "deal_profiles": sum(bool(profile.tiers) for profile in profiles),
+                "destination": config.destination.as_dict(),
+                "marketplaces": list(config.marketplaces) or "all",
             }
-            if is_buy_it_now:
-                auctions = searcher.search_ebay_buy_it_now(keywords, **search_kwargs)
-            else:
-                search_kwargs["max_time_remaining"] = max_time_remaining
-                auctions = searcher.search_ebay_auctions(keywords, **search_kwargs)
-            LOGGER.info(
-                "Found %s %s listings for %r",
-                len(auctions),
-                "Buy It Now" if is_buy_it_now else "auctions",
-                keywords,
+        )
+        return 0
+    if command == "migrate":
+        result = migrate_legacy_queries(_paths(args.paths))
+        encoded = json.dumps(result, ensure_ascii=False, indent=2)
+        if args.output:
+            Path(args.output).write_text(encoded + "\n", encoding="utf-8")
+        else:
+            print(encoded)
+        return 0
+    if command == "scan":
+        return _run_scan(args)
+    if command == "watch":
+        while True:
+            result = _run_scan(args)
+            if args.once or result != 0:
+                return result
+            config = load_config(args.config)
+            time.sleep(
+                _duration(args.interval)
+                if args.interval
+                else config.watch_interval_seconds
             )
-
-            for auction in auctions:
-                LOGGER.info(
-                    "%s | %s | %s | %s",
-                    auction["country"],
-                    auction["title"],
-                    auction["price"],
-                    auction["time_remaining"],
-                )
-                if todoist is None:
-                    continue
-                title = (
-                    f"{auction['country']} - {auction['title']} - {auction['price']}"
-                )
-                description = (
-                    f"Time remaining: {auction['time_remaining']}\n"
-                    f"Listing type: {auction['listing_type']}\n"
-                    f"Shipping: {auction['shipping_cost']}\n"
-                    f"Import duty: {auction['import_duty']}\n"
-                    f"Import VAT: {auction['import_vat']}\n"
-                    f"Landed price: {auction['landed_price']}\n"
-                    f"URL: {auction['url']}\n"
-                    f"Category: {auction['category']}"
-                )
-                todoist.submit_task(
-                    title=title,
-                    description=description,
-                    due_date=_due_date(auction["end_time"]),
-                    project_id=project_id,
-                    item_id=str(auction["item_id"]),
-                )
+    if command == "report":
+        config = load_config(args.config)
+        store = SQLiteStore(config.database_path)
+        if args.deals_only:
+            _json_print({"deals": store.recent_deals(args.limit)})
+        else:
+            _json_print(
+                {
+                    "deals": store.recent_deals(args.limit),
+                    "listings": store.recent_listings(args.limit),
+                }
+            )
+        store.close()
+        return 0
+    return 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
