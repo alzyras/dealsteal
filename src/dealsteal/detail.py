@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from .locales import normalize_country
+from .locales import EU_COUNTRIES, normalize_country
 from .models import Money
 
 
@@ -58,6 +58,40 @@ def _shipping_options(html_text: str) -> list[tuple[Money, str]]:
         if money:
             options.append((money, match.group(3)))
     return options
+
+
+def _shipping_for_destination(
+    options: list[tuple[Money, str]], destination_country: str | None
+) -> Money | None:
+    if not options:
+        return None
+    country = normalize_country(destination_country)
+    iso3 = {
+        "AT": "ATU",
+        "BE": "BEL",
+        "DE": "DEU",
+        "ES": "ESP",
+        "FR": "FRA",
+        "IE": "IRL",
+        "IT": "ITA",
+        "LT": "LTU",
+        "NL": "NLD",
+        "PL": "POL",
+        "GB": "GBR",
+        "CH": "CHE",
+        "US": "USA",
+        "CA": "CAN",
+        "AU": "AUS",
+    }.get(country or "")
+    for money, destinations in options:
+        destination_text = destinations.upper()
+        if iso3 and iso3 in destination_text:
+            return money
+        if country and country in EU_COUNTRIES and "_EU" in destination_text:
+            return money
+        if "WORLDWIDE" in destination_text or "ALL" in destination_text:
+            return money
+    return None
 
 
 def _item_price(html_text: str) -> Money | None:
@@ -148,12 +182,11 @@ def parse_detail_html(
     html_text: str, destination_country: str | None = None
 ) -> DetailData:
     """Parse structured data while tolerating escaped HTML and locale changes."""
-    del destination_country  # The page's viewer ship-to block is authoritative.
     body = html.unescape(html_text)
     listing_type = _detect_listing_type(body)
     ship_country, postal_code = _ship_to(body)
     options = _shipping_options(body)
-    shipping = options[0][0] if options else None
+    shipping = _shipping_for_destination(options, destination_country)
     duty, vat, import_known = _import_costs(body)
     return DetailData(
         listing_type=listing_type,
@@ -165,6 +198,6 @@ def parse_detail_html(
         shipping=shipping,
         import_duty=duty,
         import_vat=vat,
-        shipping_known=bool(options),
+        shipping_known=shipping is not None,
         import_cost_known=import_known,
     )
