@@ -14,8 +14,8 @@ uv sync --extra dev
 
 Edit `config.local.json` with the real destination postal code and your resale
 cost assumptions. The example defaults to Lithuania, EU-origin sellers, EUR,
-and a 40% net ROI threshold. The local config and SQLite database are ignored
-by Git.
+and a 40% net ROI threshold. It also excludes non-EU marketplace hosts such as
+the UK by default. The local config and SQLite database are ignored by Git.
 
 ## Product profiles
 
@@ -51,6 +51,17 @@ Version 2 profiles can be stored in any JSON file under `store/item_queries/`:
 Required groups are ANDed; alternatives inside a group are ORed. A listing
 must match exactly one tier to be scored. Profiles without tiers still provide
 discovery results but cannot be called profitable deals.
+
+The repository also includes a tracked broad technology watchlist with
+conservative Lithuanian Skelbiu reference prices:
+
+```sh
+uv run dealsteal validate profiles/tech_deals.json
+uv run dealsteal scan profiles/tech_deals.json --jsonl
+```
+
+Those reference prices are starting assumptions, not automatically inferred
+market values. Update the tiers when your local resale estimate changes.
 
 Legacy files containing `keywords`, `countries`, `listing_type`, price, category,
 and condition fields continue to work. Convert them with:

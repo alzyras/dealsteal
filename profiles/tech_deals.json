@@ -1,0 +1,96 @@
+{
+  "version": 2,
+  "description": "EU eBay tech deal watchlist priced against conservative Lithuanian Skelbiu asking prices.",
+  "products": [
+    {
+      "id": "macbook-air-m1-8-256",
+      "search_terms": ["MacBook Air M1 8GB 256GB -parts -broken -screen -case -charger"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["macbook air"], ["m1"], ["8gb", "8 gb"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "screen only", "case", "charger only", "for repair"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "dji-mini-3-pro-fly-more-rc",
+      "search_terms": ["DJI Mini 3 Pro Fly More RC -parts -broken -camera only"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["dji mini 3 pro"], ["fly more", "3 batteries", "3 battery"]], "excluded": ["parts", "broken", "crash", "camera only", "propeller only"]},
+      "tiers": [{"id": "fly-more-rc", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3070-8gb",
+      "search_terms": ["RTX 3070 8GB -ti -laptop -parts -broken -waterblock"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["rtx 3070"], ["8gb", "8 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 270, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "switch-oled-complete",
+      "search_terms": ["Nintendo Switch OLED Konsole komplett -defekt -parts -display"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["switch oled"], ["dock", "konsole", "console"]], "excluded": ["defekt", "broken", "parts", "display only", "case only", "game only"]},
+      "tiers": [{"id": "complete-used", "reference_price": {"amount": 250, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "meta-quest-2-128gb",
+      "search_terms": ["Meta Oculus Quest 2 128GB Controller -parts -broken -strap only"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["quest 2"], ["128gb", "128 gb"]], "excluded": ["parts", "broken", "strap only", "controller only", "lens"]},
+      "tiers": [{"id": "headset-and-controllers", "reference_price": {"amount": 190, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "synology-ds220j-diskless",
+      "search_terms": ["Synology DS220j NAS Leergehäuse -Festplatte -HDD -defekt -parts"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["ds220j"]], "excluded": ["festplatte", "hard drive", "hdd", "defekt", "parts", "case only"]},
+      "tiers": [{"id": "diskless-complete", "reference_price": {"amount": 169, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "xbox-series-s-512",
+      "search_terms": ["Xbox Series S 512GB controller -defekt -parts -case only"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["xbox series s"], ["512gb", "512 gb"]], "excluded": ["defekt", "broken", "parts", "case only", "box only", "controller only"]},
+      "tiers": [{"id": "console-complete", "reference_price": {"amount": 230, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "switch-lite-32gb",
+      "search_terms": ["Nintendo Switch Lite 32GB Konsole -defekt -parts -display only"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["switch lite"], ["32gb", "32 gb"]], "excluded": ["defekt", "broken", "parts", "display only", "case only", "game only"]},
+      "tiers": [{"id": "complete-used", "reference_price": {"amount": 115, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "hp-z2-g4-sff-i7-9700",
+      "search_terms": ["HP Z2 G4 SFF i7-9700 -tower -mini -micro -parts -barebone"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["z2 g4"], ["i7 9700", "i7-9700"], ["sff"]], "excluded": ["tower", "mini", "micro", "parts", "barebone", "for repair"]},
+      "tiers": [{"id": "sff-workstation", "reference_price": {"amount": 350, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "ipad-pro-11-2020-128",
+      "search_terms": ["iPad Pro 11 2020 128GB WiFi -parts -broken -icloud -case"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["ipad pro"], ["11"], ["2020", "2nd generation", "2 generation"], ["128gb", "128 gb"]], "excluded": ["parts", "broken", "icloud", "locked", "case only", "screen only"]},
+      "tiers": [{"id": "wifi-used", "reference_price": {"amount": 450, "currency": "EUR"}}],
+      "max_pages": 1
+    }
+  ]
+}

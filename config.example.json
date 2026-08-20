@@ -5,6 +5,7 @@
     "currency": "EUR"
   },
   "allowed_origin_zones": ["EU"],
+  "marketplaces": ["AT", "BE", "DE", "ES", "FR", "IE", "IT", "NL", "PL"],
   "reporting_currency": "EUR",
   "minimum_net_roi": 0.40,
   "costs": {
