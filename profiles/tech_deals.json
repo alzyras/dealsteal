@@ -91,6 +91,60 @@
       "match": {"required": [["ipad pro"], ["11"], ["2020", "2nd generation", "2 generation"], ["128gb", "128 gb"]], "excluded": ["parts", "broken", "icloud", "locked", "case only", "screen only"]},
       "tiers": [{"id": "wifi-used", "reference_price": {"amount": 450, "currency": "EUR"}}],
       "max_pages": 1
+    },
+    {
+      "id": "macbook-pro-2020-32-1tb",
+      "search_terms": ["MacBook Pro 13 2020 32GB 1TB -parts -broken -icloud -mdm"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["macbook pro"], ["2020"], ["32gb", "32 gb"], ["1tb", "1 tb"]], "excluded": ["parts", "broken", "icloud", "mdm", "screen only", "for repair"]},
+      "tiers": [{"id": "intel-used-complete", "reference_price": {"amount": 450, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "dell-precision-3630-rtx4000",
+      "search_terms": ["Dell Precision 3630 i7-8700K 32GB RTX 4000 512GB -parts -broken"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["precision 3630"], ["i7 8700k", "i7-8700k"], ["32gb", "32 gb"], ["rtx 4000"], ["512gb", "512 gb"]], "excluded": ["parts", "broken", "barebone", "for repair"]},
+      "tiers": [{"id": "workstation-used-complete", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "gopro-hero11-bundle",
+      "search_terms": ["GoPro HERO11 Black Zubehörpaket -parts -broken -dummy"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["gopro hero11", "gopro hero 11"], ["zubehör", "bundle", "accessories"]], "excluded": ["parts", "broken", "dummy", "case only", "battery only"]},
+      "tiers": [{"id": "used-bundle", "reference_price": {"amount": 250, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "apple-watch-series-8-45",
+      "search_terms": ["Apple Watch Series 8 45mm GPS -parts -broken -icloud -locked"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["apple watch"], ["series 8"], ["45mm", "45 mm"]], "excluded": ["parts", "broken", "icloud", "locked", "band only", "case only"]},
+      "tiers": [{"id": "gps-used-complete", "reference_price": {"amount": 180, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3080-aorus-10gb",
+      "search_terms": ["RTX 3080 Aorus Master 10GB -ti -parts -broken -waterblock"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["rtx 3080"], ["aorus"], ["10gb", "10 gb"]], "excluded": ["ti", "parts", "broken", "waterblock", "repair"]},
+      "tiers": [{"id": "aorus-used-tested", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3060-ti-8gb",
+      "search_terms": ["RTX 3060 Ti 8GB -laptop -parts -broken -waterblock"],
+      "listing_types": ["auction", "buy_it_now"],
+      "marketplaces": ["DE", "AT", "FR", "IT", "ES", "NL", "PL", "BE"],
+      "match": {"required": [["rtx 3060 ti"], ["8gb", "8 gb"]], "excluded": ["laptop", "parts", "broken", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 250, "currency": "EUR"}}],
+      "max_pages": 1
     }
   ]
 }
