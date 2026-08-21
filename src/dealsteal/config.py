@@ -165,6 +165,11 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         ),
     )
     costs = data.get("costs", {}) if isinstance(data.get("costs", {}), dict) else {}
+    skelbiu = (
+        data.get("skelbiu_api", {})
+        if isinstance(data.get("skelbiu_api", {}), dict)
+        else {}
+    )
     config = ScannerConfig(
         destination=destination,
         allowed_origin_zones=tuple(
@@ -193,6 +198,20 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         marketplaces=tuple(
             value.upper() for value in _string_tuple(data.get("marketplaces"))
         ),
+        skelbiu_api_enabled=bool(
+            skelbiu.get(
+                "enabled",
+                os.getenv("SKELBIU_API_ENABLED", "").casefold() in {"1", "true", "yes"},
+            )
+        ),
+        skelbiu_api_base_url=str(
+            skelbiu.get(
+                "base_url", os.getenv("SKELBIU_API_URL", "http://127.0.0.1:8080")
+            )
+        ).rstrip("/"),
+        skelbiu_api_timeout=float(skelbiu.get("timeout", 20.0)),
+        skelbiu_search_limit=int(skelbiu.get("search_limit", 50)),
+        skelbiu_detail_limit=int(skelbiu.get("detail_limit", 25)),
     )
     if config.search_cache_seconds < 1 or config.watch_interval_seconds < 1:
         raise ValueError("cache and watch intervals must be positive")

@@ -8,6 +8,13 @@
   "marketplaces": ["AT", "BE", "DE", "ES", "FR", "IE", "IT", "NL", "PL"],
   "reporting_currency": "EUR",
   "minimum_net_roi": 0.40,
+  "skelbiu_api": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:8080",
+    "timeout": 20,
+    "search_limit": 50,
+    "detail_limit": 25
+  },
   "costs": {
     "selling_fee_rate": 0.0,
     "purchase_overhead": 0.0,

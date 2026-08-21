@@ -123,7 +123,7 @@ def _run_scan(args: argparse.Namespace) -> int:
         )
     else:
         _json_print(result)
-    scanner.store.close()
+    scanner.close()
     return 0
 
 

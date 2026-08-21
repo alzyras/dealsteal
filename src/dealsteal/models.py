@@ -129,6 +129,11 @@ class ScannerConfig:
     request_timeout: float = 20.0
     max_rate_age_days: int = 7
     marketplaces: tuple[str, ...] = ()
+    skelbiu_api_enabled: bool = False
+    skelbiu_api_base_url: str = "http://127.0.0.1:8080"
+    skelbiu_api_timeout: float = 20.0
+    skelbiu_search_limit: int = 50
+    skelbiu_detail_limit: int = 25
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "reporting_currency", self.reporting_currency.upper())
@@ -140,6 +145,10 @@ class ScannerConfig:
             raise ValueError("fx_buffer_rate must be between 0 and 1")
         if self.request_budget < 1 or self.max_pages < 1:
             raise ValueError("request_budget and max_pages must be positive")
+        if self.skelbiu_api_timeout <= 0:
+            raise ValueError("skelbiu_api_timeout must be positive")
+        if self.skelbiu_search_limit < 1 or self.skelbiu_detail_limit < 1:
+            raise ValueError("Skelbiu limits must be positive")
 
 
 @dataclass
@@ -202,6 +211,38 @@ class Listing:
 
 
 @dataclass(frozen=True)
+class ResaleListing:
+    """A live comparison listing returned by the configured resale API."""
+
+    item_id: str
+    title: str
+    url: str
+    price: Money
+    status: str
+    location: str | None = None
+    updated_at: datetime | None = None
+    fetched_at: datetime | None = None
+
+    @property
+    def is_active(self) -> bool:
+        # The local Skelbiu API resolves sold/removed pages itself.  Treat
+        # anything other than its explicit active state as unsafe to compare.
+        return self.status.casefold().strip() == "active"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item_id,
+            "title": self.title,
+            "url": self.url,
+            "price": self.price.as_dict(),
+            "status": self.status,
+            "location": self.location,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
+        }
+
+
+@dataclass(frozen=True)
 class DealResult:
     listing: Listing
     profile_id: str
@@ -215,6 +256,8 @@ class DealResult:
     max_bid: Money | None
     qualified: bool
     reasons: tuple[str, ...] = ()
+    resale_average: Money | None = None
+    resale_comparables: tuple[ResaleListing, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -230,4 +273,8 @@ class DealResult:
             "max_bid": self.max_bid.as_dict() if self.max_bid else None,
             "qualified": self.qualified,
             "reasons": list(self.reasons),
+            "resale_average": (
+                self.resale_average.as_dict() if self.resale_average else None
+            ),
+            "resale_comparables": [item.as_dict() for item in self.resale_comparables],
         }

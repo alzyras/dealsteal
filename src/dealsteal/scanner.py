@@ -10,7 +10,7 @@ import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -22,8 +22,9 @@ from .config import load_config
 from .detail import parse_detail_html
 from .locales import Marketplace, normalize_country, origin_zone, resolve_marketplaces
 from .matching import explain_match, matching_tier
-from .models import Listing, Money, ProductProfile, ScannerConfig
+from .models import Listing, Money, PriceTier, ProductProfile, ScannerConfig
 from .scoring import DealScorer, ExchangeRates
+from .skelbiu import SkelbiuApiError, SkelbiuClient
 from .storage import SQLiteStore
 
 LOGGER = logging.getLogger(__name__)
@@ -45,6 +46,10 @@ class ScanStats:
     candidates: int = 0
     enriched: int = 0
     qualified: int = 0
+    skelbiu_requests: int = 0
+    skelbiu_active_comparables: int = 0
+    skelbiu_inactive_rejected: int = 0
+    skelbiu_api_errors: int = 0
     rejected: dict[str, int] = field(default_factory=dict)
 
     def reject(self, reason: str) -> None:
@@ -58,6 +63,10 @@ class ScanStats:
             "candidates": self.candidates,
             "enriched": self.enriched,
             "qualified": self.qualified,
+            "skelbiu_requests": self.skelbiu_requests,
+            "skelbiu_active_comparables": self.skelbiu_active_comparables,
+            "skelbiu_inactive_rejected": self.skelbiu_inactive_rejected,
+            "skelbiu_api_errors": self.skelbiu_api_errors,
             "rejected": dict(self.rejected),
         }
 
@@ -267,7 +276,15 @@ class MarketplaceScanner:
         self.http = RateLimitedHttpClient(self.config, self.store)
         self.rates = rates or self._load_rates()
         self.scorer = DealScorer(self.config, self.rates)
+        self.skelbiu = (
+            SkelbiuClient(self.config) if self.config.skelbiu_api_enabled else None
+        )
         self._parser = _parser()
+
+    def close(self) -> None:
+        if self.skelbiu:
+            self.skelbiu.close()
+        self.store.close()
 
     def _load_rates(self) -> ExchangeRates:
         try:
@@ -482,6 +499,74 @@ class MarketplaceScanner:
             return 5 * 60
         return 30 * 60
 
+    def _load_skelbiu_references(
+        self,
+        profiles: list[ProductProfile],
+        stats: ScanStats,
+        report: Callable[[dict[str, Any]], None],
+    ) -> dict[str, dict[str, tuple[Money, tuple[Any, ...]]]]:
+        """Fetch live, active Skelbiu comparables once per profile.
+
+        The individual detail endpoint is deliberately required for every
+        comparison item.  Search cards are not trusted for active status.
+        """
+        if self.skelbiu is None:
+            return {}
+        references: dict[str, dict[str, tuple[Money, tuple[Any, ...]]]] = {}
+        for profile in profiles:
+            query = (
+                profile.search_terms[0] if profile.search_terms else profile.profile_id
+            )
+            try:
+                result = self.skelbiu.search_active(query)
+            except SkelbiuApiError as error:
+                stats.skelbiu_api_errors += 1
+                stats.reject("skelbiu_api_unavailable")
+                report(
+                    {
+                        "event": "skelbiu_error",
+                        "profile_id": profile.profile_id,
+                        "error": str(error),
+                    }
+                )
+                continue
+            stats.skelbiu_requests += self.skelbiu.requests
+            self.skelbiu.requests = 0
+            stats.skelbiu_active_comparables += result.active
+            stats.skelbiu_inactive_rejected += result.rejected_inactive
+            by_tier: dict[str, list[Any]] = {}
+            for item in result.listings:
+                tier = matching_tier(profile, item.title, None)
+                if tier is not None and item.is_active:
+                    by_tier.setdefault(tier.tier_id, []).append(item)
+            references[profile.profile_id] = {}
+            for tier_id, items in by_tier.items():
+                amount = sum((item.price.amount for item in items), Decimal("0")) / len(
+                    items
+                )
+                currency = items[0].price.currency
+                references[profile.profile_id][tier_id] = (
+                    Money(amount.quantize(Decimal("0.01")), currency),
+                    tuple(items),
+                )
+            report(
+                {
+                    "event": "skelbiu_comparables",
+                    "profile_id": profile.profile_id,
+                    "query": query,
+                    "searched": result.searched,
+                    "active": result.active,
+                    "inactive_rejected": result.rejected_inactive,
+                    "tier_averages": {
+                        tier_id: average.as_dict()
+                        for tier_id, (average, _) in references[
+                            profile.profile_id
+                        ].items()
+                    },
+                }
+            )
+        return references
+
     def scan(
         self,
         profiles: list[ProductProfile],
@@ -527,6 +612,8 @@ class MarketplaceScanner:
                 )
         stats.candidates = len(candidates)
 
+        resale_references = self._load_skelbiu_references(profiles, stats, report)
+
         deals: list[dict[str, Any]] = []
         discovered: list[dict[str, Any]] = []
         for listing in candidates.values():
@@ -561,6 +648,27 @@ class MarketplaceScanner:
                 if tier is None:
                     continue
                 result = self.scorer.score(enriched, profile, tier)
+                if self.skelbiu is not None:
+                    live_reference = resale_references.get(profile.profile_id, {}).get(
+                        tier.tier_id
+                    )
+                    if live_reference is None:
+                        stats.reject("no_active_skelbiu_comparables")
+                        continue
+                    average, comparables = live_reference
+                    live_tier = PriceTier(
+                        tier_id=tier.tier_id,
+                        reference_price=average,
+                        required=tier.required,
+                        excluded=tier.excluded,
+                        conditions=tier.conditions,
+                    )
+                    result = self.scorer.score(enriched, profile, live_tier)
+                    result = replace(
+                        result,
+                        resale_average=average,
+                        resale_comparables=comparables,
+                    )
                 if result.qualified:
                     stats.qualified += 1
                     deal = result.as_dict()

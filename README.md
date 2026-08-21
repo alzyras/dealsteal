@@ -17,6 +17,28 @@ cost assumptions. The example defaults to Lithuania, EU-origin sellers, EUR,
 and a 40% net ROI threshold. It also excludes non-EU marketplace hosts such as
 the UK by default. The local config and SQLite database are ignored by Git.
 
+To compare eBay acquisition prices with current Lithuanian resale prices, keep
+the local `skelbiu-api` service running and enable its adapter in
+`config.local.json`:
+
+```json
+{
+  "skelbiu_api": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:8080",
+    "search_limit": 50,
+    "detail_limit": 25
+  }
+}
+```
+
+The scanner uses `/v1/listings` for discovery and then
+`/v1/listings/{id}` for every comparison candidate. Search-card status is not
+trusted: only a detail response with `status: "active"` and a positive price
+is used for the live resale average. Sold, removed, missing-price, and other
+non-active listings cannot qualify a deal. The local API itself does not need
+an API key.
+
 ## Product profiles
 
 Version 2 profiles can be stored in any JSON file under `store/item_queries/`:
