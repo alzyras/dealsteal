@@ -1,7 +1,8 @@
 from datetime import UTC
 from decimal import Decimal
+from pathlib import Path
 
-from dealsteal.config import config_from_dict, profile_from_dict
+from dealsteal.config import config_from_dict, load_config, profile_from_dict
 from dealsteal.detail import parse_detail_html
 from dealsteal.locales import normalize_country, resolve_marketplaces
 from dealsteal.matching import explain_match, matching_tier
@@ -149,6 +150,23 @@ def test_config_time_window_applies_when_profile_does_not_override_it() -> None:
             "max_time_remaining_hours": 10,
         }
     )
+    assert config.max_time_remaining_seconds == 10 * 60 * 60
+
+
+def test_load_config_uses_example_when_default_local_config_is_missing(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.example.json").write_text(
+        '{"destination":{"country":"LT","postal_code":"01100"},'
+        '"max_time_remaining_hours":10,"marketplaces":["DE"]}',
+        encoding="utf-8",
+    )
+
+    config = load_config()
+
+    assert config.destination.country == "LT"
+    assert config.marketplaces == ("DE",)
     assert config.max_time_remaining_seconds == 10 * 60 * 60
 
 

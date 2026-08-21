@@ -225,9 +225,23 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
 
 
 def load_config(path: str | Path | None = None) -> ScannerConfig:
-    selected = Path(path or os.getenv("DEALSTEAL_CONFIG", "config.local.json"))
+    configured_path = path or os.getenv("DEALSTEAL_CONFIG")
+    selected = Path(configured_path or "config.local.json")
     if not selected.exists():
-        return config_from_dict({})
+        # A fresh checkout deliberately has no tracked config.local.json.  Use
+        # the safe, credential-free example instead of silently falling back
+        # to an empty config (which disables the time window, marketplace
+        # selection, and the local Skelbiu comparison API).  An explicitly
+        # requested missing path keeps the old empty-config behaviour so
+        # callers can still opt into programmatic defaults.
+        if configured_path is None:
+            example = Path("config.example.json")
+            if example.exists():
+                selected = example
+            else:
+                return config_from_dict({})
+        else:
+            return config_from_dict({})
     with selected.open(encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):
