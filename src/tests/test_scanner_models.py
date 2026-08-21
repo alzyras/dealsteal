@@ -142,6 +142,16 @@ def test_unknown_shipping_cannot_be_a_deal() -> None:
     assert "destination_shipping_unknown" in result.reasons
 
 
+def test_config_time_window_applies_when_profile_does_not_override_it() -> None:
+    config = config_from_dict(
+        {
+            "destination": {"country": "LT", "postal_code": "01100"},
+            "max_time_remaining_hours": 10,
+        }
+    )
+    assert config.max_time_remaining_seconds == 10 * 60 * 60
+
+
 def test_card_price_handles_european_separators() -> None:
     assert parse_card_price("EUR 1.234,56", "EUR") == Money(Decimal("1234.56"), "EUR")
     assert parse_card_price("$1,234.56", "USD") == Money(Decimal("1234.56"), "USD")

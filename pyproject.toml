@@ -6,6 +6,7 @@ authors = [{name = "Tomas Timinskas", email = "tatiminskas@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "curl-cffi>=0.13.0",
     "requests>=2.32.3",
     "Babel>=2.15.0",
 ]

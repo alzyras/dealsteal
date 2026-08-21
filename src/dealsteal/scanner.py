@@ -17,6 +17,8 @@ from typing import Any
 from urllib.parse import urlencode
 
 import requests
+from curl_cffi import requests as curl_requests
+from curl_cffi.requests.exceptions import RequestException as CurlRequestException
 
 from .config import load_config
 from .detail import parse_detail_html
@@ -79,6 +81,7 @@ class SearchJob:
     category_ids: tuple[str, ...]
     condition_ids: tuple[str, ...]
     max_pages: int
+    max_time_remaining_seconds: int | None
 
 
 class RateLimitedHttpClient:
@@ -96,19 +99,17 @@ class RateLimitedHttpClient:
         self._cache: dict[str, tuple[float, FetchedPage]] = {}
         self.stats = ScanStats()
 
-    def _session(self, marketplace: Marketplace) -> requests.Session:
+    def _session(self, marketplace: Marketplace) -> Any:
         session = getattr(self._local, "session", None)
         if session is None:
-            session = requests.Session()
+            # eBay's public pages reject the default Python TLS fingerprint
+            # before returning HTML.  curl_cffi keeps the transport
+            # browserless while presenting one stable Chrome fingerprint; it
+            # does not rotate identities or change the host rate limits.
+            session = curl_requests.Session(impersonate="chrome")
             session.headers.update(
                 {
-                    "User-Agent": (
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    ),
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                    "Accept-Encoding": "gzip, deflate",
                 }
             )
             self._local.session = session
@@ -157,7 +158,6 @@ class RateLimitedHttpClient:
                     return page
             cooldown = self._cooldown_until.get(marketplace.host, 0)
             if cooldown > now:
-                self.stats.challenges += 1
                 return None
         lock = self._lock_for(marketplace.host)
 
@@ -177,7 +177,7 @@ class RateLimitedHttpClient:
                     )
                     with self._state_lock:
                         self._last_request[marketplace.host] = time.monotonic()
-                except requests.RequestException as error:
+                except (requests.RequestException, CurlRequestException) as error:
                     LOGGER.warning("Request failed for %s: %s", marketplace.host, error)
                     if attempt == 2:
                         return None
@@ -190,11 +190,10 @@ class RateLimitedHttpClient:
                         delay = min(60.0, max(2.0, float(retry_after)))
                     except ValueError:
                         delay = 2.0
-                    if attempt == 2:
-                        self._trip(marketplace.host, challenge=False)
-                        return None
-                    time.sleep(delay)
-                    continue
+                    # Do not park a worker for the whole Retry-After period.
+                    # Open the host circuit and let other marketplaces run.
+                    self._trip(marketplace.host, challenge=False, cooldown=delay)
+                    return None
                 if response.status_code == 403 or self._is_challenge(response):
                     self._trip(marketplace.host, challenge=True)
                     return None
@@ -223,11 +222,13 @@ class RateLimitedHttpClient:
                 return page
         return None
 
-    def _trip(self, host: str, challenge: bool) -> None:
+    def _trip(self, host: str, challenge: bool, cooldown: float | None = None) -> None:
         with self._state_lock:
             self._failures[host] = self._failures.get(host, 0) + 1
             if challenge or self._failures[host] >= 2:
-                self._cooldown_until[host] = time.monotonic() + 1800
+                self._cooldown_until[host] = time.monotonic() + (
+                    cooldown if cooldown is not None else 1800
+                )
                 if challenge:
                     self.stats.challenges += 1
 
@@ -312,6 +313,14 @@ class MarketplaceScanner:
                             site.code,
                             profile.category_ids,
                             profile.condition_ids,
+                            profile.max_time_remaining_seconds
+                            if profile.max_time_remaining_seconds is not None
+                            else self.config.max_time_remaining_seconds,
+                        )
+                        time_limit = (
+                            profile.max_time_remaining_seconds
+                            if profile.max_time_remaining_seconds is not None
+                            else self.config.max_time_remaining_seconds
                         )
                         jobs[key] = SearchJob(
                             term,
@@ -320,6 +329,7 @@ class MarketplaceScanner:
                             profile.category_ids,
                             profile.condition_ids,
                             profile.max_pages or self.config.max_pages,
+                            time_limit,
                         )
         return list(jobs.values())
 
@@ -372,6 +382,20 @@ class MarketplaceScanner:
                 if item_id in seen:
                     continue
                 seen.add(item_id)
+                if (
+                    job.listing_type == "auction"
+                    and job.max_time_remaining_seconds is not None
+                ):
+                    card_seconds = self._parser._parse_time_left(
+                        str(raw.get("time_left", ""))
+                    )
+                    # Countdown text only prioritizes discovery.  The item
+                    # page's absolute timestamp remains mandatory for deals.
+                    if (
+                        card_seconds is not None
+                        and card_seconds > job.max_time_remaining_seconds
+                    ):
+                        continue
                 price = parse_card_price(
                     str(raw.get("price_text", "")), job.marketplace.currency
                 )
@@ -380,10 +404,9 @@ class MarketplaceScanner:
                     Listing(
                         item_id=item_id,
                         title=title,
-                        url=str(
-                            raw.get("url")
-                            or f"https://{job.marketplace.host}/itm/{item_id}"
-                        ),
+                        # Search links contain volatile tracking parameters;
+                        # canonical item URLs are shorter and cacheable.
+                        url=f"https://{job.marketplace.host}/itm/{item_id}",
                         marketplace=job.marketplace.code,
                         host=job.marketplace.host,
                         listing_type=job.listing_type,

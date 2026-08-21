@@ -28,6 +28,7 @@
   "watch_interval_seconds": 900,
   "request_budget": 500,
   "max_pages": 2,
+  "max_time_remaining_hours": 10,
   "max_concurrency": 4,
   "per_host_interval": 2.0,
   "request_timeout": 20.0,

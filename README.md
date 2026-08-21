@@ -12,6 +12,11 @@ cp config.example.json config.local.json
 uv sync --extra dev
 ```
 
+The eBay transport uses `curl-cffi` with one stable Chrome TLS fingerprint. It
+is still browserless and credential-free; it does not rotate identities or
+try to bypass a challenge. If one host returns a challenge, that host is
+paused and the scan continues with other marketplaces.
+
 Edit `config.local.json` with the real destination postal code and your resale
 cost assumptions. The example defaults to Lithuania, EU-origin sellers, EUR,
 and a 40% net ROI threshold. It also excludes non-EU marketplace hosts such as
@@ -120,6 +125,7 @@ for distant auctions, five minutes inside 24 hours, and one minute inside one
 hour. SQLite also keeps query cursors so a budget-interrupted watch pass can
 resume without starting the interrupted page over.
 
-The scanner uses a stable user agent, per-host throttling, bounded concurrency,
-cache, retry-after handling, and a host circuit breaker. It does not rotate
-identities or attempt to bypass eBay access controls.
+The scanner uses one stable browser-like transport fingerprint, per-host
+throttling, bounded concurrency, cache, retry-after handling, and a host
+circuit breaker. It does not rotate identities or attempt to bypass eBay
+access controls.

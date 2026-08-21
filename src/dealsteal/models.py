@@ -128,6 +128,7 @@ class ScannerConfig:
     per_host_interval: float = 2.0
     request_timeout: float = 20.0
     max_rate_age_days: int = 7
+    max_time_remaining_seconds: int | None = None
     marketplaces: tuple[str, ...] = ()
     skelbiu_api_enabled: bool = False
     skelbiu_api_base_url: str = "http://127.0.0.1:8080"

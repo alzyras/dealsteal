@@ -170,6 +170,9 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         if isinstance(data.get("skelbiu_api", {}), dict)
         else {}
     )
+    max_time = data.get("max_time_remaining_seconds")
+    if max_time is None and data.get("max_time_remaining_hours") is not None:
+        max_time = int(float(data["max_time_remaining_hours"]) * 3600)
     config = ScannerConfig(
         destination=destination,
         allowed_origin_zones=tuple(
@@ -195,6 +198,7 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         per_host_interval=float(data.get("per_host_interval", 2.0)),
         request_timeout=float(data.get("request_timeout", 20.0)),
         max_rate_age_days=int(data.get("max_rate_age_days", 7)),
+        max_time_remaining_seconds=(int(max_time) if max_time is not None else None),
         marketplaces=tuple(
             value.upper() for value in _string_tuple(data.get("marketplaces"))
         ),

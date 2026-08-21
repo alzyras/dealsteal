@@ -134,14 +134,19 @@ class DealScorer:
             reasons.append("destination_not_verified")
         if listing.origin_zone not in self.config.allowed_origin_zones:
             reasons.append("seller_origin_not_allowed")
-        if profile.max_time_remaining_seconds is not None:
+        time_limit = (
+            profile.max_time_remaining_seconds
+            if profile.max_time_remaining_seconds is not None
+            else self.config.max_time_remaining_seconds
+        )
+        if time_limit is not None:
             if listing.listing_type != "auction":
                 pass
             elif listing.end_time is None or listing.end_time_source != "item_page":
                 reasons.append("absolute_end_time_unknown")
             else:
                 remaining = (listing.end_time - datetime.now(UTC)).total_seconds()
-                if remaining < 0 or remaining > profile.max_time_remaining_seconds:
+                if remaining < 0 or remaining > time_limit:
                     reasons.append("auction_outside_time_window")
 
         if reasons:
