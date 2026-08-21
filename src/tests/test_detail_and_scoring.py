@@ -20,6 +20,13 @@ DETAIL_FIXTURE = r'''<script>
  "shippingCost":{"amount":"6,99","currency":"EUR","shipToLocations":["LTU"]}}
 </script>'''
 
+MODERN_BIN_FIXTURE = r'''<script>
+{"BUY_BOX":{"_type":"BuyBoxModule","binModel":{"price":{"value":{"value":550,"currency":"EUR"}}}},
+ "endTime":{"value":"2030-04-05T11:22:33.000Z"},
+ "related":{"currentPrice":{"amount":"5.50","currency":"EUR"},"buyingFormat":"AUCTION"},
+ "shippingCost":{"original":{"amount":5.50,"currency":"EUR"},"shipToLocations":["ITA"]}}
+</script><span>Oggetto che si trova a: Cecchignola, Italia</span>'''
+
 
 def test_detail_parser_uses_absolute_time_and_destination_shipping() -> None:
     parsed = parse_detail_html(DETAIL_FIXTURE, "LT")
@@ -38,6 +45,16 @@ def test_countdown_without_absolute_timestamp_is_not_promoted_to_end_time() -> N
     parsed = parse_detail_html('<div class="time-left">Heute 22:05</div>', "LT")
 
     assert parsed.end_time is None
+
+
+def test_modern_item_page_uses_primary_buy_box_not_related_listing() -> None:
+    parsed = parse_detail_html(MODERN_BIN_FIXTURE, "LT")
+
+    assert parsed.listing_type == "buy_it_now"
+    assert parsed.price == Money(Decimal("550"), "EUR")
+    assert parsed.origin_country == "IT"
+    assert parsed.end_time == datetime(2030, 4, 5, 11, 22, 33, tzinfo=UTC)
+    assert not parsed.shipping_known
 
 
 def test_max_bid_solves_fx_buffer_for_the_new_bid() -> None:
