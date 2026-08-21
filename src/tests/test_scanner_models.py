@@ -10,6 +10,7 @@ from dealsteal.models import Listing, Money
 from dealsteal.scanner import (
     FetchedPage,
     MarketplaceScanner,
+    RateLimitedHttpClient,
     ScanStats,
     parse_card_price,
 )
@@ -168,6 +169,24 @@ def test_load_config_uses_example_when_default_local_config_is_missing(
     assert config.destination.country == "LT"
     assert config.marketplaces == ("DE",)
     assert config.max_time_remaining_seconds == 10 * 60 * 60
+
+
+def test_host_circuit_opens_only_after_repeated_challenge() -> None:
+    config = config_from_dict(
+        {
+            "destination": {"country": "LT", "postal_code": "01100"},
+            "database_path": ":memory:",
+        }
+    )
+    client = RateLimitedHttpClient(config)
+
+    client._trip("www.ebay.de", challenge=True)
+    assert "www.ebay.de" not in client._cooldown_until
+    assert client.stats.challenges == 1
+
+    client._trip("www.ebay.de", challenge=True)
+    assert client._cooldown_until["www.ebay.de"] > 0
+    assert client.stats.challenges == 2
 
 
 def test_card_price_handles_european_separators() -> None:

@@ -225,12 +225,19 @@ class RateLimitedHttpClient:
     def _trip(self, host: str, challenge: bool, cooldown: float | None = None) -> None:
         with self._state_lock:
             self._failures[host] = self._failures.get(host, 0) + 1
-            if challenge or self._failures[host] >= 2:
+            # A single public-page challenge can be item-specific or a
+            # transient WAF response. Retry the host once; only repeated
+            # restrictions open the long circuit so healthy item pages on
+            # the same marketplace are not discarded unnecessarily.
+            repeated_restriction = challenge and self._failures[host] >= 2
+            if repeated_restriction or (not challenge and self._failures[host] >= 2):
                 self._cooldown_until[host] = time.monotonic() + (
                     cooldown if cooldown is not None else 1800
                 )
                 if challenge:
                     self.stats.challenges += 1
+            elif challenge:
+                self.stats.challenges += 1
 
     @staticmethod
     def _is_challenge(response: requests.Response) -> bool:
