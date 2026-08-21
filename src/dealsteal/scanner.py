@@ -108,6 +108,14 @@ class RateLimitedHttpClient:
         ] = f"{marketplace.locale},{marketplace.locale.split('-')[0]};q=0.8,en;q=0.5"
         return session
 
+    def _reserve_request(self) -> bool:
+        """Reserve one network attempt without allowing concurrent overshoot."""
+        with self._state_lock:
+            if self.stats.requested >= self.config.request_budget:
+                return False
+            self.stats.requested += 1
+            return True
+
     def _lock_for(self, host: str) -> threading.Lock:
         with self._state_lock:
             return self._locks.setdefault(host, threading.Lock())
@@ -153,12 +161,13 @@ class RateLimitedHttpClient:
                 if remaining > 0:
                     time.sleep(remaining + random.uniform(0, 0.5))
                 try:
+                    if not self._reserve_request():
+                        return None
                     response = self._session(marketplace).get(
                         url, params=params, timeout=self.config.request_timeout
                     )
                     with self._state_lock:
                         self._last_request[marketplace.host] = time.monotonic()
-                        self.stats.requested += 1
                 except requests.RequestException as error:
                     LOGGER.warning("Request failed for %s: %s", marketplace.host, error)
                     if attempt == 2:
@@ -263,7 +272,9 @@ class MarketplaceScanner:
     def _load_rates(self) -> ExchangeRates:
         try:
             return ExchangeRates.from_ecb(timeout=self.config.request_timeout)
-        except Exception as error:  # noqa: BLE001 - scan remains useful for EUR-only data
+        except (
+            Exception
+        ) as error:  # noqa: BLE001 - scan remains useful for EUR-only data
             LOGGER.warning("Could not load ECB rates: %s", error)
             return ExchangeRates(
                 {"EUR": Decimal("1"), self.config.reporting_currency: Decimal("1")}
@@ -298,7 +309,17 @@ class MarketplaceScanner:
     def _search_job(self, job: SearchJob) -> list[Listing]:
         results: list[Listing] = []
         seen: set[str] = set()
-        for page_number in range(1, job.max_pages + 1):
+        query_key = "|".join(
+            (
+                job.term,
+                job.listing_type,
+                job.marketplace.code,
+                ",".join(job.category_ids),
+                ",".join(job.condition_ids),
+            )
+        )
+        start_page = self.store.get_query_cursor(query_key)
+        for page_number in range(start_page, start_page + job.max_pages):
             params = {
                 "_nkw": job.term,
                 "_ipg": "120",
@@ -317,6 +338,8 @@ class MarketplaceScanner:
                 self.config.search_cache_seconds,
             )
             if page is None:
+                if self.http.stats.requested >= self.config.request_budget:
+                    self.store.save_query_cursor(query_key, page_number)
                 break
             raw_items = self._parser._extract_items(
                 page.body.decode("utf-8", "replace")
@@ -356,11 +379,18 @@ class MarketplaceScanner:
                 )
                 new_on_page += 1
             if new_on_page == 0:
+                if self.http.stats.requested < self.config.request_budget:
+                    self.store.save_query_cursor(query_key, 1)
                 break
+        else:
+            # A normal bounded pass starts at page one next time so watch mode
+            # continues to see newly listed items.  Only an interrupted pass
+            # leaves a resumable cursor above.
+            self.store.save_query_cursor(query_key, 1)
         return results
 
     def _enrich(self, listing: Listing, marketplace: Marketplace) -> Listing | None:
-        ttl = 21600 if listing.listing_type == "buy_it_now" else 1800
+        ttl = self._detail_cache_ttl(listing)
         page = self.http.get(marketplace, listing.url, cache_seconds=ttl)
         if page is None:
             listing.rejection_reasons.append("detail_request_failed_or_challenged")
@@ -374,6 +404,7 @@ class MarketplaceScanner:
             listing.price = data.price
         if data.end_time:
             listing.end_time = data.end_time
+            listing.end_time_source = "item_page"
         if data.origin_country:
             listing.origin_country = data.origin_country
         listing.origin_zone = origin_zone(listing.origin_country)
@@ -437,6 +468,20 @@ class MarketplaceScanner:
             listing.rejection_reasons.append("absolute_end_time_unknown")
         return listing
 
+    @staticmethod
+    def _detail_cache_ttl(listing: Listing) -> int:
+        """Use short-lived cache entries as an auction approaches its end."""
+        if listing.listing_type == "buy_it_now":
+            return 6 * 60 * 60
+        if listing.end_time is None:
+            return 30 * 60
+        remaining = (listing.end_time - datetime.now(UTC)).total_seconds()
+        if remaining <= 60 * 60:
+            return 60
+        if remaining <= 24 * 60 * 60:
+            return 5 * 60
+        return 30 * 60
+
     def scan(
         self,
         profiles: list[ProductProfile],
@@ -457,7 +502,9 @@ class MarketplaceScanner:
                 job = futures[future]
                 try:
                     rows = future.result()
-                except Exception as error:  # noqa: BLE001 - one marketplace must not abort all scans
+                except (
+                    Exception
+                ) as error:  # noqa: BLE001 - one marketplace must not abort all scans
                     LOGGER.exception("Search job failed for %s", job.marketplace.code)
                     report(
                         {

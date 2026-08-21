@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from .locales import EU_COUNTRIES, normalize_country
@@ -27,28 +27,54 @@ class DetailData:
     import_cost_known: bool = False
 
 
+_ISO_TIMESTAMP_RE = re.compile(
+    r"\b(20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?" r"(?:Z|[+-]\d{2}:?\d{2}))\b"
+)
+
+
 def _iso_time(html_text: str) -> datetime | None:
-    match = re.search(
-        r'"endTime".{0,700}?"value"\s*:\s*"([^" ]+Z)"', html_text, re.DOTALL
-    )
-    if not match:
-        return None
-    try:
-        return datetime.fromisoformat(match.group(1).replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    """Extract an absolute timestamp, regardless of eBay's wrapper shape.
+
+    eBay has emitted ``endTime`` as a string, ``{value: ...}``, and inside
+    escaped JSON blobs.  We deliberately accept only ISO timestamps with an
+    explicit timezone; localized countdown text is never converted here.
+    """
+    candidates: list[str] = []
+    for match in re.finditer(r'"(?:endTime|endDate)"\s*:\s*', html_text, re.I):
+        candidates.extend(
+            _ISO_TIMESTAMP_RE.findall(html_text[match.end() : match.end() + 1200])
+        )
+    if not candidates:
+        candidates = _ISO_TIMESTAMP_RE.findall(html_text)
+    for value in candidates:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(UTC)
+    return None
 
 
 def _money(value: str, currency: str) -> Money | None:
     try:
-        return Money(Decimal(value), currency)
+        normalized = value.strip().replace(" ", "")
+        if "," in normalized and "." in normalized:
+            normalized = (
+                normalized.replace(".", "").replace(",", ".")
+                if normalized.rfind(",") > normalized.rfind(".")
+                else normalized.replace(",", "")
+            )
+        elif "," in normalized:
+            normalized = normalized.replace(",", ".")
+        return Money(Decimal(normalized), currency)
     except (ArithmeticError, ValueError):
         return None
 
 
 def _shipping_options(html_text: str) -> list[tuple[Money, str]]:
     pattern = re.compile(
-        r'"shippingCost"\s*:\s*\{.*?"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
+        r'"shippingCost"\s*:\s*\{.*?"amount"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)"?'
         r'.*?"currency"\s*:\s*"([A-Z]{3})".*?"shipToLocations"\s*:\s*\[([^\]]*)\]',
         re.DOTALL,
     )
@@ -96,9 +122,9 @@ def _shipping_for_destination(
 
 def _item_price(html_text: str) -> Money | None:
     patterns = (
-        r'"currentPrice"\s*:\s*\{.*?"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
+        r'"currentPrice"\s*:\s*\{.*?"amount"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)"?'
         r'.*?"currency"\s*:\s*"([A-Z]{3})"',
-        r'"price"\s*:\s*\{.*?"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
+        r'"price"\s*:\s*\{.*?"amount"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)"?'
         r'.*?"currency"\s*:\s*"([A-Z]{3})"',
     )
     for pattern in patterns:
@@ -135,14 +161,26 @@ def _detect_listing_type(html_text: str) -> str | None:
 
 
 def _ship_to(html_text: str) -> tuple[str | None, str | None]:
-    match = re.search(
-        r'"shipToLocation"\s*:\s*\{.{0,500}?"country"\s*:\s*"([A-Z]{2})"'
-        r'.{0,200}?"postalCode"\s*:\s*"([^"]*)"',
-        html_text,
-        re.DOTALL,
-    )
-    if match:
-        return normalize_country(match.group(1)), match.group(2)
+    for key in ("shipToLocation", "shipToAddress", "shippingAddress"):
+        key_match = re.search(rf'"{key}"\s*:\s*', html_text, re.IGNORECASE)
+        if not key_match:
+            continue
+        block = html_text[key_match.end() : key_match.end() + 1800]
+        country_match = re.search(
+            r'"(?:country|countryCode)"\s*:\s*"([A-Za-z]{2,3})"',
+            block,
+            re.IGNORECASE,
+        )
+        postal_match = re.search(
+            r'"(?:postalCode|postal_code|zip)"\s*:\s*"([^"]*)"',
+            block,
+            re.IGNORECASE,
+        )
+        if country_match and postal_match:
+            return (
+                normalize_country(country_match.group(1)),
+                postal_match.group(1).strip(),
+            )
     return None, None
 
 
@@ -162,7 +200,7 @@ def _import_costs(html_text: str) -> tuple[Money | None, Money | None, bool]:
     duty = vat = None
     found = False
     for label, amount, currency in re.findall(
-        r'"(importCharges|duty|vat|taxes)".{0,450}?"amount"\s*:\s*([0-9]+(?:\.[0-9]+)?)'
+        r'"(importCharges|duty|vat|taxes)".{0,450}?"amount"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)"?'
         r'.{0,100}?"currency"\s*:\s*"([A-Z]{3})"',
         html_text,
         re.DOTALL | re.IGNORECASE,
@@ -182,7 +220,7 @@ def parse_detail_html(
     html_text: str, destination_country: str | None = None
 ) -> DetailData:
     """Parse structured data while tolerating escaped HTML and locale changes."""
-    body = html.unescape(html_text)
+    body = html.unescape(html_text).replace(r'\"', '"')
     listing_type = _detect_listing_type(body)
     ship_country, postal_code = _ship_to(body)
     options = _shipping_options(body)

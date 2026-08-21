@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import UTC
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
 import requests
@@ -76,6 +76,22 @@ class DealScorer:
             return None
         return self.rates.convert(value, self.config.reporting_currency)
 
+    def _rates_fresh_for(self, values: tuple[Money | None, ...]) -> bool:
+        """Require a dated ECB snapshot whenever a currency conversion is used."""
+        needs_conversion = any(
+            value is not None and value.currency != self.config.reporting_currency
+            for value in values
+        )
+        if not needs_conversion:
+            return True
+        if not self.rates.as_of:
+            return False
+        try:
+            as_of = datetime.fromisoformat(self.rates.as_of).date()
+        except ValueError:
+            return False
+        return (datetime.now(UTC).date() - as_of).days <= self.config.max_rate_age_days
+
     def score(
         self,
         listing: Listing,
@@ -100,6 +116,10 @@ class DealScorer:
             if listing.import_vat
             else _zero(currency)
         )
+        if not self._rates_fresh_for(
+            (tier.reference_price, listing.price, listing.shipping)
+        ):
+            reasons.append("fx_rate_missing_or_stale")
         if price is None:
             reasons.append("price_unknown_or_currency_unavailable")
         if not listing.shipping_known or shipping is None:
@@ -115,11 +135,11 @@ class DealScorer:
         if listing.origin_zone not in self.config.allowed_origin_zones:
             reasons.append("seller_origin_not_allowed")
         if profile.max_time_remaining_seconds is not None:
-            if listing.end_time is None:
+            if listing.listing_type != "auction":
+                pass
+            elif listing.end_time is None or listing.end_time_source != "item_page":
                 reasons.append("absolute_end_time_unknown")
             else:
-                from datetime import datetime
-
                 remaining = (listing.end_time - datetime.now(UTC)).total_seconds()
                 if remaining < 0 or remaining > profile.max_time_remaining_seconds:
                     reasons.append("auction_outside_time_window")
@@ -157,8 +177,15 @@ class DealScorer:
         max_total_amount = proceeds_amount / (
             Decimal("1") + self.config.minimum_net_roi
         )
-        non_bid_cost = acquisition_amount - price.amount
-        max_bid_amount = max_total_amount - non_bid_cost
+        # Solve the acquisition formula again for the bid.  The FX buffer is
+        # proportional to the whole purchase, so subtracting the current
+        # acquisition cost would understate the safe bid when the bid changes.
+        fixed_cost = (
+            shipping.amount + duty.amount + vat.amount + self.config.purchase_overhead
+        )
+        max_bid_amount = (max_total_amount - fixed_cost) / (
+            Decimal("1") + self.config.fx_buffer_rate
+        )
         max_bid = Money(
             max(Decimal("0"), max_bid_amount).quantize(Decimal("0.01")), currency
         )

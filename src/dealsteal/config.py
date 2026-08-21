@@ -165,7 +165,7 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         ),
     )
     costs = data.get("costs", {}) if isinstance(data.get("costs", {}), dict) else {}
-    return ScannerConfig(
+    config = ScannerConfig(
         destination=destination,
         allowed_origin_zones=tuple(
             value.upper()
@@ -194,6 +194,11 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
             value.upper() for value in _string_tuple(data.get("marketplaces"))
         ),
     )
+    if config.search_cache_seconds < 1 or config.watch_interval_seconds < 1:
+        raise ValueError("cache and watch intervals must be positive")
+    if config.max_concurrency < 1 or config.per_host_interval < 0:
+        raise ValueError("concurrency must be positive and host interval non-negative")
+    return config
 
 
 def load_config(path: str | Path | None = None) -> ScannerConfig:

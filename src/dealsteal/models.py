@@ -160,6 +160,7 @@ class Listing:
     ship_to_postal_code: str | None = None
     condition: str | None = None
     end_time: datetime | None = None
+    end_time_source: str | None = None
     fetched_at: datetime | None = None
     bid_count: int = 0
     detail_verified: bool = False
@@ -189,6 +190,7 @@ class Listing:
             "ship_to_postal_code": self.ship_to_postal_code,
             "condition": self.condition,
             "end_time": self.end_time.isoformat() if self.end_time else None,
+            "end_time_source": self.end_time_source,
             "fetched_at": self.fetched_at.isoformat() if self.fetched_at else None,
             "bid_count": self.bid_count,
             "detail_verified": self.detail_verified,

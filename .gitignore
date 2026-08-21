@@ -147,4 +147,8 @@ poetry.lock
 debug_*
 test_*
 
+# Keep repository test modules trackable; this project intentionally stores
+# its deterministic fixtures under src/tests.
+!src/tests/test_*.py
+
 .ruff_cache

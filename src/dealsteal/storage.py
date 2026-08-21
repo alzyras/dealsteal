@@ -56,6 +56,11 @@ class SQLiteStore:
                 observed_at TEXT NOT NULL,
                 deal_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS query_cursors (
+                query_key TEXT PRIMARY KEY,
+                next_page INTEGER NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS listings_observed_at ON listings(observed_at);
             """
         )
@@ -163,3 +168,23 @@ class SQLiteStore:
             "SELECT deal_json FROM deals ORDER BY observed_at DESC LIMIT ?", (limit,)
         ).fetchall()
         return [json.loads(row["deal_json"]) for row in rows]
+
+    def get_query_cursor(self, query_key: str) -> int:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT next_page FROM query_cursors WHERE query_key=?", (query_key,)
+            ).fetchone()
+        return max(1, int(row["next_page"])) if row else 1
+
+    def save_query_cursor(self, query_key: str, next_page: int) -> None:
+        with self._lock:
+            self.connection.execute(
+                """
+                INSERT INTO query_cursors(query_key, next_page, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(query_key) DO UPDATE SET next_page=excluded.next_page,
+                updated_at=excluded.updated_at
+                """,
+                (query_key, max(1, int(next_page)), datetime.now(UTC).isoformat()),
+            )
+            self.connection.commit()

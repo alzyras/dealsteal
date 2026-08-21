@@ -89,6 +89,15 @@ conversion, absolute auction time, or listing type are retained with rejection
 reasons but never qualify as deals. Shipping and import amounts are estimates
 until checkout, so the output is a decision aid rather than a purchase promise.
 
+For an auction ending window, the scanner ignores the search-card countdown when
+deciding whether an item qualifies. It must find an absolute ISO timestamp on the
+public item page and compares that UTC timestamp with the current clock. A
+countdown can prioritize a detail fetch, but it cannot qualify an ending-window
+deal. Detail cache lifetimes are adaptive: six hours for Buy It Now, 30 minutes
+for distant auctions, five minutes inside 24 hours, and one minute inside one
+hour. SQLite also keeps query cursors so a budget-interrupted watch pass can
+resume without starting the interrupted page over.
+
 The scanner uses a stable user agent, per-host throttling, bounded concurrency,
 cache, retry-after handling, and a host circuit breaker. It does not rotate
 identities or attempt to bypass eBay access controls.
