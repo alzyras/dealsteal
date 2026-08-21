@@ -679,8 +679,14 @@ class MarketplaceScanner:
                     for reason in result.reasons:
                         stats.reject(reason)
 
+        # A scan that reaches the end of its job queue after every eBay host
+        # has returned a challenge is not complete coverage.  Treat it as a
+        # partial scan so callers cannot mistake an empty result for a clean
+        # market scan; the detailed challenge count remains in ``stats``.
         status = (
-            "complete" if stats.requested < self.config.request_budget else "partial"
+            "partial"
+            if stats.requested >= self.config.request_budget or stats.challenges
+            else "complete"
         )
         self.store.finish_scan(scan_id, status, stats.as_dict())
         return {
