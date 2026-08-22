@@ -460,14 +460,19 @@ class MarketplaceScanner:
         page = self.http.get(
             marketplace,
             listing.url,
-            params={"_stpos": self.config.destination.postal_code},
+            params={
+                "_stpos": self.config.destination.postal_code,
+                "country": self.config.destination.country,
+            },
             cache_seconds=ttl,
         )
         if page is None:
             listing.rejection_reasons.append("detail_request_failed_or_challenged")
             return listing
         data = parse_detail_html(
-            page.body.decode("utf-8", "replace"), self.config.destination.country
+            page.body.decode("utf-8", "replace"),
+            self.config.destination.country,
+            self.config.destination.postal_code,
         )
         listing.detail_verified = True
         listing.fetched_at = datetime.now(UTC)
@@ -568,9 +573,7 @@ class MarketplaceScanner:
             return {}
         references: dict[str, dict[str, tuple[Money, tuple[Any, ...]]]] = {}
         for profile in profiles:
-            query = (
-                profile.search_terms[0] if profile.search_terms else profile.profile_id
-            )
+            query = self._skelbiu_query(profile)
             try:
                 result = self.skelbiu.search_active(query)
             except SkelbiuApiError as error:
@@ -621,6 +624,19 @@ class MarketplaceScanner:
             )
         return references
 
+    @staticmethod
+    def _skelbiu_query(profile: ProductProfile) -> str:
+        """Convert an eBay query into a positive Skelbiu discovery query.
+
+        eBay's ``-term`` exclusion syntax is not a portable Skelbiu API
+        operator. Sending it verbatim can turn a useful resale comparison into
+        an empty result, so exclusions remain enforced by Dealsteal matching
+        after the API returns active listings.
+        """
+        raw = profile.search_terms[0] if profile.search_terms else profile.profile_id
+        positive = re.sub(r"(?<!\S)-\S+", " ", raw)
+        return re.sub(r"\s+", " ", positive).strip() or profile.profile_id
+
     def scan(
         self,
         profiles: list[ProductProfile],
@@ -629,7 +645,18 @@ class MarketplaceScanner:
         scan_id = self.store.start_scan()
         stats = self.http.stats
         candidates: dict[str, Listing] = {}
+        candidate_variants: dict[str, list[Listing]] = {}
         jobs = self._jobs(profiles)
+
+        def candidate_priority(listing: Listing) -> tuple[int, Decimal, str]:
+            # Search-card origin is only a discovery hint, never final proof.
+            # It is nevertheless useful for deciding which candidates to
+            # enrich first when many jobs finish concurrently: EU-origin and
+            # cheaper candidates are more likely to pass the configured
+            # customs and ROI gates than a random US/GB duplicate.
+            origin_priority = 0 if listing.origin_zone == "EU" else 1
+            price = listing.price.amount if listing.price else Decimal("Infinity")
+            return origin_priority, price, listing.item_id
 
         def report(event: dict[str, Any]) -> None:
             if emit:
@@ -654,7 +681,16 @@ class MarketplaceScanner:
                     )
                     continue
                 for row in rows:
-                    candidates.setdefault(row.item_id, row)
+                    variants = candidate_variants.setdefault(row.item_id, [])
+                    if not any(
+                        variant.marketplace == row.marketplace for variant in variants
+                    ):
+                        variants.append(row)
+                    current = candidates.get(row.item_id)
+                    if current is None or candidate_priority(row) < candidate_priority(
+                        current
+                    ):
+                        candidates[row.item_id] = row
                 report(
                     {
                         "event": "page_complete",
@@ -670,7 +706,8 @@ class MarketplaceScanner:
 
         deals: list[dict[str, Any]] = []
         discovered: list[dict[str, Any]] = []
-        for listing in candidates.values():
+
+        for listing in sorted(candidates.values(), key=candidate_priority):
             if self._budget_exhausted():
                 stats.reject("request_budget_exhausted")
                 break
@@ -686,12 +723,35 @@ class MarketplaceScanner:
                 matching_profiles.append((profile, tier))
             if not matching_profiles:
                 continue
-            marketplace = next(
-                (item for item in resolve_marketplaces((listing.marketplace,))), None
+            # The canonical item ID is global, but different marketplace
+            # copies can expose different destination-shipping modules. Try
+            # the cheapest EU-origin copy first, then fall back to the other
+            # discovered locale copies if its page is challenged or omits
+            # the configured destination. This preserves global deduplication
+            # without throwing away a verifiable copy of the same item.
+            variants = sorted(
+                candidate_variants.get(listing.item_id, [listing]),
+                key=candidate_priority,
             )
-            if marketplace is None:
-                continue
-            enriched = self._enrich(listing, marketplace)
+            enriched = None
+            for variant in variants:
+                marketplace = next(
+                    (item for item in resolve_marketplaces((variant.marketplace,))),
+                    None,
+                )
+                if marketplace is None:
+                    continue
+                attempt = self._enrich(variant, marketplace)
+                if attempt is None:
+                    continue
+                enriched = attempt
+                if (
+                    attempt.detail_verified
+                    and attempt.end_time is not None
+                    and attempt.shipping_known
+                    and attempt.ship_to_country == self.config.destination.country
+                ):
+                    break
             if enriched is None:
                 continue
             stats.enriched += 1

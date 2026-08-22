@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "description": "Focused live auction scan for high-liquidity EU tech with active Skelbiu resale comparables.",
+  "products": [
+    {
+      "id": "focus-iphone-14-pro-256",
+      "search_terms": ["iPhone 14 Pro 256GB -max -parts -broken -locked -icloud", "iPhone 14 Pro 256"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 14 pro"], ["256gb", "256 gb"]], "excluded": ["pro max", "parts", "broken", "locked", "icloud", "display only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 450, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-iphone-14-pro-max-256",
+      "search_terms": ["iPhone 14 Pro Max 256GB -parts -broken -locked -icloud", "iPhone 14 Pro Max 256"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 14 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "locked", "icloud", "display only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 500, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-iphone-15-pro-max-256",
+      "search_terms": ["iPhone 15 Pro Max 256GB -parts -broken -locked -icloud", "iPhone 15 Pro Max 256"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 15 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "locked", "icloud", "display only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 700, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-macbook-air-m1-8-256",
+      "search_terms": ["MacBook Air M1 8GB 256GB -parts -broken -screen -case -charger", "MacBook Air M1 256GB"],
+      "listing_types": ["auction"],
+      "match": {"required": [["macbook air"], ["m1"], ["8gb", "8 gb"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "screen only", "case only", "charger only", "liquid damage"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-rtx-3080-10gb",
+      "search_terms": ["RTX 3080 10GB -ti -laptop -parts -broken -waterblock", "RTX 3080 10GB"],
+      "listing_types": ["auction"],
+      "match": {"required": [["rtx 3080"], ["10gb", "10 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-rtx-3070-8gb",
+      "search_terms": ["RTX 3070 8GB -ti -laptop -parts -broken -waterblock", "RTX 3070 8GB"],
+      "listing_types": ["auction"],
+      "match": {"required": [["rtx 3070"], ["8gb", "8 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 270, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-steam-deck-lcd-512",
+      "search_terms": ["Steam Deck LCD 512GB -parts -broken -screen -case only", "Steam Deck LCD 512GB"],
+      "listing_types": ["auction"],
+      "match": {"required": [["steam deck"], ["512gb", "512 gb"]], "excluded": ["oled", "parts", "broken", "screen only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 362, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "focus-apple-watch-8-45",
+      "search_terms": ["Apple Watch Series 8 45mm GPS -parts -broken -icloud -locked", "Apple Watch Series 8 45mm"],
+      "listing_types": ["auction"],
+      "match": {"required": [["apple watch"], ["series 8"], ["45mm", "45 mm"]], "excluded": ["parts", "broken", "icloud", "locked", "band only", "case only"]},
+      "tiers": [{"id": "gps-used-complete", "reference_price": {"amount": 180, "currency": "EUR"}}],
+      "max_pages": 1
+    }
+  ]
+}

@@ -41,6 +41,21 @@ def test_detail_parser_uses_absolute_time_and_destination_shipping() -> None:
     assert parsed.shipping_known
 
 
+def test_detail_parser_reads_json_ld_shipping_outside_buy_box() -> None:
+    html = r'''<script type="application/ld+json">
+    {"offers":{"priceCurrency":"EUR","price":"271",
+      "shippingDetails":[{"shippingRate":{"value":"14.99","currency":"EUR"},
+      "shippingDestination":{"addressCountry":"LTU"}}]}}
+    </script>'''
+
+    parsed = parse_detail_html(html, "LT", "01100")
+
+    assert parsed.shipping == Money(Decimal("14.99"), "EUR")
+    assert parsed.shipping_known
+    assert parsed.ship_to_country == "LT"
+    assert parsed.ship_to_postal_code == "01100"
+
+
 def test_countdown_without_absolute_timestamp_is_not_promoted_to_end_time() -> None:
     parsed = parse_detail_html('<div class="time-left">Heute 22:05</div>', "LT")
 

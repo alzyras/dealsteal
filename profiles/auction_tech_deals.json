@@ -4,7 +4,7 @@
   "products": [
     {
       "id": "iphone-14-pro-256-auction",
-      "search_terms": ["iPhone 14 Pro 256GB -max -parts -broken -locked -icloud"],
+      "search_terms": ["iPhone 14 Pro 256GB -max -parts -broken -locked -icloud", "iPhone 14 Pro 256", "iPhone 14 Pro"],
       "listing_types": ["auction"],
       "match": {"required": [["iphone 14 pro"], ["256gb", "256 gb"]], "excluded": ["pro max", "parts", "broken", "defekt", "locked", "icloud", "display only", "case only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 450, "currency": "EUR"}}],
@@ -12,7 +12,7 @@
     },
     {
       "id": "iphone-14-pro-max-256-auction",
-      "search_terms": ["iPhone 14 Pro Max 256GB -parts -broken -locked -icloud"],
+      "search_terms": ["iPhone 14 Pro Max 256GB -parts -broken -locked -icloud", "iPhone 14 Pro Max 256", "iPhone 14 Pro Max"],
       "listing_types": ["auction"],
       "match": {"required": [["iphone 14 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "locked", "icloud", "display only", "case only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 500, "currency": "EUR"}}],
@@ -20,7 +20,7 @@
     },
     {
       "id": "iphone-15-pro-256-auction",
-      "search_terms": ["iPhone 15 Pro 256GB -max -parts -broken -locked -icloud"],
+      "search_terms": ["iPhone 15 Pro 256GB -max -parts -broken -locked -icloud", "iPhone 15 Pro 256", "iPhone 15 Pro"],
       "listing_types": ["auction"],
       "match": {"required": [["iphone 15 pro"], ["256gb", "256 gb"]], "excluded": ["pro max", "parts", "broken", "defekt", "locked", "icloud", "display only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 650, "currency": "EUR"}}],
@@ -28,7 +28,7 @@
     },
     {
       "id": "iphone-15-pro-max-256-auction",
-      "search_terms": ["iPhone 15 Pro Max 256GB -parts -broken -locked -icloud"],
+      "search_terms": ["iPhone 15 Pro Max 256GB -parts -broken -locked -icloud", "iPhone 15 Pro Max 256", "iPhone 15 Pro Max"],
       "listing_types": ["auction"],
       "match": {"required": [["iphone 15 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "locked", "icloud", "display only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 700, "currency": "EUR"}}],
@@ -36,7 +36,7 @@
     },
     {
       "id": "macbook-air-m1-8-256-auction",
-      "search_terms": ["MacBook Air M1 8GB 256GB -parts -broken -screen -case -charger"],
+      "search_terms": ["MacBook Air M1 8GB 256GB -parts -broken -screen -case -charger", "MacBook Air M1 256GB", "MacBook Air M1"],
       "listing_types": ["auction"],
       "match": {"required": [["macbook air"], ["m1"], ["8gb", "8 gb"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "screen only", "case only", "charger only", "liquid damage"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 400, "currency": "EUR"}}],
@@ -44,7 +44,7 @@
     },
     {
       "id": "macbook-pro-m1-pro-16-512-auction",
-      "search_terms": ["MacBook Pro 14 M1 Pro 16GB 512GB -parts -broken -icloud -mdm"],
+      "search_terms": ["MacBook Pro 14 M1 Pro 16GB 512GB -parts -broken -icloud -mdm", "MacBook Pro 14 M1 Pro", "MacBook Pro M1 Pro"],
       "listing_types": ["auction"],
       "match": {"required": [["macbook pro"], ["m1 pro"], ["16gb", "16 gb"], ["512gb", "512 gb"]], "excluded": ["parts", "broken", "defekt", "icloud", "mdm", "screen only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 700, "currency": "EUR"}}],
@@ -84,7 +84,7 @@
     },
     {
       "id": "rtx-3080-10gb-auction",
-      "search_terms": ["RTX 3080 10GB -ti -laptop -parts -broken -waterblock"],
+      "search_terms": ["RTX 3080 10GB -ti -laptop -parts -broken -waterblock", "RTX 3080 10GB", "RTX 3080"],
       "listing_types": ["auction"],
       "match": {"required": [["rtx 3080"], ["10gb", "10 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
       "tiers": [{"id": "tested-used", "reference_price": {"amount": 400, "currency": "EUR"}}],
@@ -92,7 +92,7 @@
     },
     {
       "id": "rtx-3080-ti-12gb-auction",
-      "search_terms": ["RTX 3080 Ti 12GB -laptop -parts -broken -waterblock"],
+      "search_terms": ["RTX 3080 Ti 12GB -laptop -parts -broken -waterblock", "RTX 3080 Ti", "3080 Ti"],
       "listing_types": ["auction"],
       "match": {"required": [["rtx 3080 ti"], ["12gb", "12 gb"]], "excluded": ["laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
       "tiers": [{"id": "tested-used", "reference_price": {"amount": 480, "currency": "EUR"}}],
@@ -100,7 +100,7 @@
     },
     {
       "id": "rtx-3070-8gb-auction",
-      "search_terms": ["RTX 3070 8GB -ti -laptop -parts -broken -waterblock"],
+      "search_terms": ["RTX 3070 8GB -ti -laptop -parts -broken -waterblock", "RTX 3070 8GB", "RTX 3070"],
       "listing_types": ["auction"],
       "match": {"required": [["rtx 3070"], ["8gb", "8 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
       "tiers": [{"id": "tested-used", "reference_price": {"amount": 270, "currency": "EUR"}}],
@@ -108,7 +108,7 @@
     },
     {
       "id": "steam-deck-oled-1tb-auction",
-      "search_terms": ["Steam Deck OLED 1TB -parts -broken -screen -case only"],
+      "search_terms": ["Steam Deck OLED 1TB -parts -broken -screen -case only", "Steam Deck OLED 1TB", "Steam Deck OLED"],
       "listing_types": ["auction"],
       "match": {"required": [["steam deck"], ["oled"], ["1tb", "1 tb"]], "excluded": ["parts", "broken", "defekt", "screen only", "case only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 650, "currency": "EUR"}}],
@@ -116,7 +116,7 @@
     },
     {
       "id": "steam-deck-lcd-512-auction",
-      "search_terms": ["Steam Deck LCD 512GB -parts -broken -screen -case only"],
+      "search_terms": ["Steam Deck LCD 512GB -parts -broken -screen -case only", "Steam Deck LCD 512GB", "Steam Deck 512GB"],
       "listing_types": ["auction"],
       "match": {"required": [["steam deck"], ["512gb", "512 gb"]], "excluded": ["oled", "parts", "broken", "defekt", "screen only", "case only"]},
       "tiers": [{"id": "used-complete", "reference_price": {"amount": 430, "currency": "EUR"}}],
@@ -148,7 +148,7 @@
     },
     {
       "id": "apple-watch-8-45-gps-auction",
-      "search_terms": ["Apple Watch Series 8 45mm GPS -parts -broken -icloud -locked"],
+      "search_terms": ["Apple Watch Series 8 45mm GPS -parts -broken -icloud -locked", "Apple Watch Series 8 45mm", "Apple Watch Series 8"],
       "listing_types": ["auction"],
       "match": {"required": [["apple watch"], ["series 8"], ["45mm", "45 mm"]], "excluded": ["parts", "broken", "defekt", "icloud", "locked", "band only", "case only"]},
       "tiers": [{"id": "gps-used-complete", "reference_price": {"amount": 180, "currency": "EUR"}}],

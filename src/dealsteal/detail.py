@@ -100,10 +100,10 @@ def _shipping_options(html_text: str) -> list[tuple[Money, str]]:
         money = _money(match.group(1) or match.group(2), match.group(3))
         if money:
             options.append((money, match.group(4)))
-    if options:
-        return options
-
     # JSON-LD uses OfferShippingDetails rather than the GraphQL shape above.
+    # Do not return early when GraphQL options exist: the former can describe
+    # the seller's local service while JSON-LD carries a destination-specific
+    # international option for the configured country.
     for match in re.finditer(
         r'"shippingRate"\s*:\s*\{.*?"value"\s*:\s*"?([0-9]+(?:[.,][0-9]+)?)"?'
         r'.*?"currency"\s*:\s*"([A-Z]{3})".*?'
@@ -312,15 +312,28 @@ def _import_costs(html_text: str) -> tuple[Money | None, Money | None, bool]:
 
 
 def parse_detail_html(
-    html_text: str, destination_country: str | None = None
+    html_text: str,
+    destination_country: str | None = None,
+    destination_postal_code: str | None = None,
 ) -> DetailData:
     """Parse structured data while tolerating escaped HTML and locale changes."""
     body = html.unescape(html_text).replace(r'\"', '"')
     listing_type = _detect_listing_type(body)
     ship_country, postal_code = _ship_to(body)
     primary = _primary_buy_box(body)
-    options = _shipping_options(primary or body)
+    options = _shipping_options(primary)
+    if not options:
+        # JSON-LD shippingDetails is commonly outside BUY_BOX.  The primary
+        # block remains authoritative when it contains shipping options, but
+        # a missing BUY_BOX option must not hide a destination-specific offer.
+        options = _shipping_options(body)
     shipping = _shipping_for_destination(options, destination_country)
+    if shipping is not None and ship_country is None:
+        # The destination-specific JSON-LD offer is emitted after the page was
+        # requested with country and postal code. Preserve that context when
+        # eBay does not repeat it in a separate shipToLocation object.
+        ship_country = normalize_country(destination_country)
+        postal_code = destination_postal_code
     duty, vat, import_known = _import_costs(body)
     return DetailData(
         listing_type=listing_type,
