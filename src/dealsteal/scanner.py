@@ -438,7 +438,17 @@ class MarketplaceScanner:
 
     def _enrich(self, listing: Listing, marketplace: Marketplace) -> Listing | None:
         ttl = self._detail_cache_ttl(listing)
-        page = self.http.get(marketplace, listing.url, cache_seconds=ttl)
+        # eBay's item page uses the postal code query parameter to render the
+        # destination-specific delivery block.  Search discovery already sends
+        # it, but canonical item URLs intentionally omit volatile tracking
+        # parameters; preserve the destination here or shipping will be
+        # incorrectly reported as unknown for an otherwise valid listing.
+        page = self.http.get(
+            marketplace,
+            listing.url,
+            params={"_stpos": self.config.destination.postal_code},
+            cache_seconds=ttl,
+        )
         if page is None:
             listing.rejection_reasons.append("detail_request_failed_or_challenged")
             return listing
