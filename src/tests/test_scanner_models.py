@@ -171,6 +171,22 @@ def test_load_config_uses_example_when_default_local_config_is_missing(
     assert config.max_time_remaining_seconds == 10 * 60 * 60
 
 
+def test_load_config_uses_example_for_missing_explicit_local_path(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "config.example.json").write_text(
+        '{"destination":{"country":"LT","postal_code":"01100"},'
+        '"marketplaces":["DE"],"request_budget":null}',
+        encoding="utf-8",
+    )
+
+    config = load_config("config.local.json")
+
+    assert config.marketplaces == ("DE",)
+    assert config.request_budget is None
+
+
 def test_host_circuit_opens_only_after_repeated_challenge() -> None:
     config = config_from_dict(
         {

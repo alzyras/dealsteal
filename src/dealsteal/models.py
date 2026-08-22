@@ -122,7 +122,9 @@ class ScannerConfig:
     database_path: str = "store/dealsteal.sqlite3"
     search_cache_seconds: int = 600
     watch_interval_seconds: int = 900
-    request_budget: int = 500
+    # None disables only the scan-wide counter. Per-host throttling, retries,
+    # circuit breakers, pagination, and caches remain active.
+    request_budget: int | None = 1500
     max_pages: int = 2
     max_concurrency: int = 4
     per_host_interval: float = 2.0
@@ -144,8 +146,10 @@ class ScannerConfig:
             raise ValueError("selling_fee_rate must be between 0 and 1")
         if not 0 <= self.fx_buffer_rate < 1:
             raise ValueError("fx_buffer_rate must be between 0 and 1")
-        if self.request_budget < 1 or self.max_pages < 1:
-            raise ValueError("request_budget and max_pages must be positive")
+        if self.request_budget is not None and self.request_budget < 1:
+            raise ValueError("request_budget must be positive or null")
+        if self.max_pages < 1:
+            raise ValueError("max_pages must be positive")
         if self.skelbiu_api_timeout <= 0:
             raise ValueError("skelbiu_api_timeout must be positive")
         if self.skelbiu_search_limit < 1 or self.skelbiu_detail_limit < 1:

@@ -145,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
                 "deal_profiles": sum(bool(profile.tiers) for profile in profiles),
                 "destination": config.destination.as_dict(),
                 "marketplaces": list(config.marketplaces) or "all",
+                "request_budget": config.request_budget,
             }
         )
         return 0

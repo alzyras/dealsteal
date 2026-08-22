@@ -1,0 +1,190 @@
+{
+  "version": 2,
+  "description": "Auction-only EU tech deal scan for Lithuania. Every profile inherits the configured 10-hour absolute-end window.",
+  "products": [
+    {
+      "id": "iphone-14-pro-256-auction",
+      "search_terms": ["iPhone 14 Pro 256GB -max -parts -broken -locked -icloud"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 14 pro"], ["256gb", "256 gb"]], "excluded": ["pro max", "parts", "broken", "defekt", "locked", "icloud", "display only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 450, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "iphone-14-pro-max-256-auction",
+      "search_terms": ["iPhone 14 Pro Max 256GB -parts -broken -locked -icloud"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 14 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "locked", "icloud", "display only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 500, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "iphone-15-pro-256-auction",
+      "search_terms": ["iPhone 15 Pro 256GB -max -parts -broken -locked -icloud"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 15 pro"], ["256gb", "256 gb"]], "excluded": ["pro max", "parts", "broken", "defekt", "locked", "icloud", "display only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 650, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "iphone-15-pro-max-256-auction",
+      "search_terms": ["iPhone 15 Pro Max 256GB -parts -broken -locked -icloud"],
+      "listing_types": ["auction"],
+      "match": {"required": [["iphone 15 pro max"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "locked", "icloud", "display only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 700, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "macbook-air-m1-8-256-auction",
+      "search_terms": ["MacBook Air M1 8GB 256GB -parts -broken -screen -case -charger"],
+      "listing_types": ["auction"],
+      "match": {"required": [["macbook air"], ["m1"], ["8gb", "8 gb"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "screen only", "case only", "charger only", "liquid damage"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "macbook-pro-m1-pro-16-512-auction",
+      "search_terms": ["MacBook Pro 14 M1 Pro 16GB 512GB -parts -broken -icloud -mdm"],
+      "listing_types": ["auction"],
+      "match": {"required": [["macbook pro"], ["m1 pro"], ["16gb", "16 gb"], ["512gb", "512 gb"]], "excluded": ["parts", "broken", "defekt", "icloud", "mdm", "screen only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 700, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "mac-mini-m1-16-512-auction",
+      "search_terms": ["Mac mini M1 16GB 512GB -parts -broken -logic board"],
+      "listing_types": ["auction"],
+      "match": {"required": [["mac mini"], ["m1"], ["16gb", "16 gb"], ["512gb", "512 gb"]], "excluded": ["parts", "broken", "defekt", "logic board", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "mac-mini-m2-pro-16-512-auction",
+      "search_terms": ["Mac mini M2 Pro 16GB 512GB -parts -broken -logic board"],
+      "listing_types": ["auction"],
+      "match": {"required": [["mac mini"], ["m2 pro"], ["16gb", "16 gb"], ["512gb", "512 gb"]], "excluded": ["parts", "broken", "defekt", "logic board", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 850, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "dji-mini-3-pro-fly-more-auction",
+      "search_terms": ["DJI Mini 3 Pro Fly More RC -parts -broken -crash -camera only"],
+      "listing_types": ["auction"],
+      "match": {"required": [["dji mini 3 pro"], ["fly more", "3 batteries", "3 battery"]], "excluded": ["parts", "broken", "defekt", "crash", "camera only", "propeller only"]},
+      "tiers": [{"id": "fly-more-complete", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "dji-air-2s-fly-more-auction",
+      "search_terms": ["DJI Air 2S Fly More Combo -parts -broken -crash -camera only"],
+      "listing_types": ["auction"],
+      "match": {"required": [["dji air 2s"], ["fly more", "3 batteries", "3 battery"]], "excluded": ["parts", "broken", "defekt", "crash", "camera only"]},
+      "tiers": [{"id": "fly-more-complete", "reference_price": {"amount": 500, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3080-10gb-auction",
+      "search_terms": ["RTX 3080 10GB -ti -laptop -parts -broken -waterblock"],
+      "listing_types": ["auction"],
+      "match": {"required": [["rtx 3080"], ["10gb", "10 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 400, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3080-ti-12gb-auction",
+      "search_terms": ["RTX 3080 Ti 12GB -laptop -parts -broken -waterblock"],
+      "listing_types": ["auction"],
+      "match": {"required": [["rtx 3080 ti"], ["12gb", "12 gb"]], "excluded": ["laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 480, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "rtx-3070-8gb-auction",
+      "search_terms": ["RTX 3070 8GB -ti -laptop -parts -broken -waterblock"],
+      "listing_types": ["auction"],
+      "match": {"required": [["rtx 3070"], ["8gb", "8 gb"]], "excluded": ["ti", "laptop", "parts", "broken", "defekt", "waterblock", "repair"]},
+      "tiers": [{"id": "tested-used", "reference_price": {"amount": 270, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "steam-deck-oled-1tb-auction",
+      "search_terms": ["Steam Deck OLED 1TB -parts -broken -screen -case only"],
+      "listing_types": ["auction"],
+      "match": {"required": [["steam deck"], ["oled"], ["1tb", "1 tb"]], "excluded": ["parts", "broken", "defekt", "screen only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 650, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "steam-deck-lcd-512-auction",
+      "search_terms": ["Steam Deck LCD 512GB -parts -broken -screen -case only"],
+      "listing_types": ["auction"],
+      "match": {"required": [["steam deck"], ["512gb", "512 gb"]], "excluded": ["oled", "parts", "broken", "defekt", "screen only", "case only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 430, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "ipad-pro-11-2020-256-auction",
+      "search_terms": ["iPad Pro 11 2020 256GB WiFi Cellular -parts -broken -icloud -case"],
+      "listing_types": ["auction"],
+      "match": {"required": [["ipad pro"], ["11"], ["2020", "2nd generation", "2 generation"], ["256gb", "256 gb"]], "excluded": ["parts", "broken", "defekt", "icloud", "locked", "case only", "screen only"]},
+      "tiers": [{"id": "cellular-used", "reference_price": {"amount": 450, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "sony-a7-iii-body-auction",
+      "search_terms": ["Sony A7 III body ILCE-7M3 -parts -broken -repair"],
+      "listing_types": ["auction"],
+      "match": {"required": [["sony"], ["a7 iii", "a7iii", "ilce-7m3"]], "excluded": ["parts", "broken", "defekt", "repair", "screen only"]},
+      "tiers": [{"id": "body-used", "reference_price": {"amount": 850, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "gopro-hero-12-auction",
+      "search_terms": ["GoPro HERO12 Black 5.3K -parts -broken -dummy -case only"],
+      "listing_types": ["auction"],
+      "match": {"required": [["gopro hero12", "gopro hero 12"], ["black"]], "excluded": ["parts", "broken", "defekt", "dummy", "case only", "battery only"]},
+      "tiers": [{"id": "used-complete", "reference_price": {"amount": 320, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "apple-watch-8-45-gps-auction",
+      "search_terms": ["Apple Watch Series 8 45mm GPS -parts -broken -icloud -locked"],
+      "listing_types": ["auction"],
+      "match": {"required": [["apple watch"], ["series 8"], ["45mm", "45 mm"]], "excluded": ["parts", "broken", "defekt", "icloud", "locked", "band only", "case only"]},
+      "tiers": [{"id": "gps-used-complete", "reference_price": {"amount": 180, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "hp-z2-g4-sff-i7-auction",
+      "search_terms": ["HP Z2 G4 SFF i7-9700 -tower -mini -micro -parts -barebone"],
+      "listing_types": ["auction"],
+      "match": {"required": [["z2 g4"], ["i7 9700", "i7-9700"], ["sff"]], "excluded": ["tower", "mini", "micro", "parts", "barebone", "for repair"]},
+      "tiers": [{"id": "sff-workstation", "reference_price": {"amount": 350, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "dell-precision-3630-auction",
+      "search_terms": ["Dell Precision 3630 i7-8700K 32GB RTX 4000 512GB -parts -broken"],
+      "listing_types": ["auction"],
+      "match": {"required": [["precision 3630"], ["i7 8700k", "i7-8700k"], ["32gb", "32 gb"], ["rtx 4000"]], "excluded": ["parts", "broken", "defekt", "barebone", "for repair"]},
+      "tiers": [{"id": "workstation-complete", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "sff-server-e-2288g-auction",
+      "search_terms": ["SFF server Xeon E-2288G 8 core -rack -parts -broken -barebone"],
+      "listing_types": ["auction"],
+      "match": {"required": [["xeon e-2288g", "e-2288g"]], "excluded": ["rack", "parts", "broken", "defekt", "barebone"]},
+      "tiers": [{"id": "sff-server", "reference_price": {"amount": 550, "currency": "EUR"}}],
+      "max_pages": 1
+    },
+    {
+      "id": "thinkpad-p14s-gen2-auction",
+      "search_terms": ["ThinkPad P14s Gen 2 Ryzen 7 5850U 32GB -parts -broken -screen"],
+      "listing_types": ["auction"],
+      "match": {"required": [["p14s"], ["gen 2", "gen2"], ["5850u"]], "excluded": ["parts", "broken", "defekt", "screen only"]},
+      "tiers": [{"id": "workstation-used", "reference_price": {"amount": 500, "currency": "EUR"}}],
+      "max_pages": 1
+    }
+  ]
+}

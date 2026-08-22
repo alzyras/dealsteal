@@ -17,6 +17,21 @@ from .models import (
     decimal,
 )
 
+# Safe default for a Lithuanian resale scan. The locale registry still knows
+# about every official marketplace, but an omitted local config must never
+# silently expand a targeted EU scan to US/UK/CH or other non-EU hosts.
+DEFAULT_EU_MARKETPLACES = (
+    "AT",
+    "BE",
+    "DE",
+    "ES",
+    "FR",
+    "IE",
+    "IT",
+    "NL",
+    "PL",
+)
+
 
 def _string_tuple(value: Any) -> tuple[str, ...]:
     if value is None:
@@ -192,7 +207,11 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         database_path=str(data.get("database_path", "store/dealsteal.sqlite3")),
         search_cache_seconds=int(data.get("search_cache_seconds", 600)),
         watch_interval_seconds=int(data.get("watch_interval_seconds", 900)),
-        request_budget=int(data.get("request_budget", 500)),
+        request_budget=(
+            None
+            if data.get("request_budget", 1500) is None
+            else int(data.get("request_budget", 1500))
+        ),
         max_pages=int(data.get("max_pages", 2)),
         max_concurrency=int(data.get("max_concurrency", 4)),
         per_host_interval=float(data.get("per_host_interval", 2.0)),
@@ -200,7 +219,10 @@ def config_from_dict(data: dict[str, Any]) -> ScannerConfig:
         max_rate_age_days=int(data.get("max_rate_age_days", 7)),
         max_time_remaining_seconds=(int(max_time) if max_time is not None else None),
         marketplaces=tuple(
-            value.upper() for value in _string_tuple(data.get("marketplaces"))
+            value.upper()
+            for value in _string_tuple(
+                data.get("marketplaces", DEFAULT_EU_MARKETPLACES)
+            )
         ),
         skelbiu_api_enabled=bool(
             skelbiu.get(
@@ -228,12 +250,12 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
     configured_path = path or os.getenv("DEALSTEAL_CONFIG")
     selected = Path(configured_path or "config.local.json")
     if not selected.exists():
-        # A fresh checkout deliberately has no tracked config.local.json.  Use
+        # A fresh checkout deliberately has no tracked config.local.json. Use
         # the safe, credential-free example instead of silently falling back
         # to an empty config (which disables the time window, marketplace
-        # selection, and the local Skelbiu comparison API).  An explicitly
-        # requested missing path keeps the old empty-config behaviour so
-        # callers can still opt into programmatic defaults.
+        # selection, and the local Skelbiu comparison API). This also applies
+        # when the CLI explicitly names the conventional but ignored local
+        # path; otherwise `--config config.local.json` would scan every host.
         if configured_path is None:
             example = Path("config.example.json")
             if example.exists():
@@ -241,7 +263,11 @@ def load_config(path: str | Path | None = None) -> ScannerConfig:
             else:
                 return config_from_dict({})
         else:
-            return config_from_dict({})
+            example = Path("config.example.json")
+            if example.exists():
+                selected = example
+            else:
+                return config_from_dict({})
     with selected.open(encoding="utf-8") as file:
         data = json.load(file)
     if not isinstance(data, dict):

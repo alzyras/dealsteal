@@ -121,10 +121,19 @@ class RateLimitedHttpClient:
     def _reserve_request(self) -> bool:
         """Reserve one network attempt without allowing concurrent overshoot."""
         with self._state_lock:
-            if self.stats.requested >= self.config.request_budget:
+            if (
+                self.config.request_budget is not None
+                and self.stats.requested >= self.config.request_budget
+            ):
                 return False
             self.stats.requested += 1
             return True
+
+    def budget_exhausted(self) -> bool:
+        return (
+            self.config.request_budget is not None
+            and self.stats.requested >= self.config.request_budget
+        )
 
     def _lock_for(self, host: str) -> threading.Lock:
         with self._state_lock:
@@ -294,6 +303,11 @@ class MarketplaceScanner:
             self.skelbiu.close()
         self.store.close()
 
+    def _budget_exhausted(self) -> bool:
+        """Keep scan control compatible with small test HTTP doubles."""
+        budget = self.config.request_budget
+        return budget is not None and self.http.stats.requested >= budget
+
     def _load_rates(self) -> ExchangeRates:
         try:
             return ExchangeRates.from_ecb(timeout=self.config.request_timeout)
@@ -372,7 +386,7 @@ class MarketplaceScanner:
                 self.config.search_cache_seconds,
             )
             if page is None:
-                if self.http.stats.requested >= self.config.request_budget:
+                if self._budget_exhausted():
                     self.store.save_query_cursor(query_key, page_number)
                 break
             raw_items = self._parser._extract_items(
@@ -426,7 +440,7 @@ class MarketplaceScanner:
                 )
                 new_on_page += 1
             if new_on_page == 0:
-                if self.http.stats.requested < self.config.request_budget:
+                if not self._budget_exhausted():
                     self.store.save_query_cursor(query_key, 1)
                 break
         else:
@@ -657,7 +671,7 @@ class MarketplaceScanner:
         deals: list[dict[str, Any]] = []
         discovered: list[dict[str, Any]] = []
         for listing in candidates.values():
-            if stats.requested >= self.config.request_budget:
+            if self._budget_exhausted():
                 stats.reject("request_budget_exhausted")
                 break
             matching_profiles: list[tuple[ProductProfile, Any]] = []
@@ -724,9 +738,7 @@ class MarketplaceScanner:
         # partial scan so callers cannot mistake an empty result for a clean
         # market scan; the detailed challenge count remains in ``stats``.
         status = (
-            "partial"
-            if stats.requested >= self.config.request_budget or stats.challenges
-            else "complete"
+            "partial" if self._budget_exhausted() or stats.challenges else "complete"
         )
         self.store.finish_scan(scan_id, status, stats.as_dict())
         return {
